@@ -20,17 +20,25 @@ import { styled, alpha } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import TechCycleLogo from '../assets/images/TechCycle.png';
 
 const Search = styled('div')(({ theme }) => ({
   position: 'relative',
-  borderRadius: theme.shape.borderRadius,
-  backgroundColor: alpha(theme.palette.common.white, 0.15),
+  borderRadius: '25px',
+  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  border: '1px solid rgba(255, 255, 255, 0.2)',
   '&:hover': {
-    backgroundColor: alpha(theme.palette.common.white, 0.25),
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+  },
+  '&:focus-within': {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    border: '1px solid rgba(255, 255, 255, 0.4)',
   },
   marginRight: theme.spacing(2),
   marginLeft: 0,
   width: '100%',
+  transition: 'all 0.3s ease',
   [theme.breakpoints.up('sm')]: {
     marginLeft: theme.spacing(3),
     width: 'auto',
@@ -45,25 +53,31 @@ const SearchIconWrapper = styled('div')(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+  color: 'rgba(255, 255, 255, 0.7)',
 }));
 
 const StyledInputBase = styled(InputBase)(({ theme }) => ({
-  color: 'inherit',
+  color: 'white',
   '& .MuiInputBase-input': {
-    padding: theme.spacing(1, 1, 1, 0),
+    padding: theme.spacing(1.5, 1, 1.5, 0),
     paddingLeft: `calc(1em + ${theme.spacing(4)})`,
     transition: theme.transitions.create('width'),
     width: '100%',
+    fontSize: '0.95rem',
+    '&::placeholder': {
+      color: 'rgba(255, 255, 255, 0.6)',
+      opacity: 1,
+    },
     [theme.breakpoints.up('md')]: {
-      width: '20ch',
+      width: '25ch',
     },
   },
 }));
 
 const Navbar = () => {
   const navigate = useNavigate();
-  const { user, logout, isAdmin } = useAuth();
-  const { getCartItemsCount } = useCart();
+  const { user, logout, isAdmin, isSeller } = useAuth();
+  const { getCartItemCount } = useCart();
   const [anchorEl, setAnchorEl] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -89,21 +103,32 @@ const Navbar = () => {
   };
 
   return (
-    <AppBar position="static">
-      <Toolbar>
-        <Typography
-          variant="h6"
-          noWrap
-          component="div"
+    <AppBar 
+      position="static" 
+      sx={{ 
+        bgcolor: 'black',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+        borderBottom: '1px solid rgba(255,255,255,0.1)'
+      }}
+    >
+      <Toolbar sx={{ minHeight: '70px' }}>
+        <Box
+          component="img"
+          src={TechCycleLogo}
+          alt="Tech Cycle"
           sx={{ 
-            display: { xs: 'none', md: 'flex' },
+            display: { xs: 'none', md: 'block' },
             cursor: 'pointer',
-            fontWeight: 'bold'
+            height: '40px',
+            width: 'auto',
+            objectFit: 'contain',
+            '&:hover': {
+              transform: 'scale(1.05)'
+            },
+            transition: 'all 0.2s ease'
           }}
           onClick={() => navigate('/')}
-        >
-          Tech Cycle
-        </Typography>
+        />
         
         <Box sx={{ flexGrow: 1 }} />
         
@@ -124,22 +149,72 @@ const Navbar = () => {
         <IconButton
           color="inherit"
           onClick={() => navigate('/cart')}
-          sx={{ ml: 1 }}
+          sx={{ 
+            ml: 2,
+            color: 'white',
+            '&:hover': {
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              transform: 'scale(1.05)'
+            },
+            transition: 'all 0.2s ease'
+          }}
         >
-          <Badge badgeContent={getCartItemsCount()} color="secondary">
+          <Badge 
+            badgeContent={getCartItemCount()} 
+            sx={{
+              '& .MuiBadge-badge': {
+                backgroundColor: 'white',
+                color: 'black',
+                fontWeight: 600,
+                fontSize: '0.75rem'
+              }
+            }}
+          >
             <ShoppingCartIcon />
           </Badge>
         </IconButton>
 
-        <Button color="inherit" onClick={() => navigate('/products')}>
+        <Button 
+          color="inherit" 
+          onClick={() => navigate('/products')}
+          sx={{
+            color: 'white',
+            fontWeight: 500,
+            textTransform: 'none',
+            fontSize: '1rem',
+            px: 2,
+            '&:hover': {
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              transform: 'translateY(-1px)'
+            },
+            transition: 'all 0.2s ease'
+          }}
+        >
           Browse
         </Button>
 
         {user ? (
           <>
-            <Button color="inherit" onClick={() => navigate('/sell')}>
-              Sell
-            </Button>
+            {isSeller() && (
+              <Button 
+                color="inherit" 
+                onClick={() => navigate('/sell')}
+                sx={{
+                  color: 'white',
+                  fontWeight: 500,
+                  textTransform: 'none',
+                  fontSize: '1rem',
+                  px: 2,
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    transform: 'translateY(-1px)'
+                  },
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Sell
+              </Button>
+            )}
             <IconButton
               size="large"
               aria-label="account of current user"
@@ -147,6 +222,15 @@ const Navbar = () => {
               aria-haspopup="true"
               onClick={handleMenu}
               color="inherit"
+              sx={{
+                color: 'white',
+                ml: 1,
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  transform: 'scale(1.05)'
+                },
+                transition: 'all 0.2s ease'
+              }}
             >
               <AccountCircle />
             </IconButton>
@@ -183,10 +267,44 @@ const Navbar = () => {
           </>
         ) : (
           <>
-            <Button color="inherit" onClick={() => navigate('/login')}>
+            <Button 
+              color="inherit" 
+              onClick={() => navigate('/login')}
+              sx={{
+                color: 'white',
+                fontWeight: 500,
+                textTransform: 'none',
+                fontSize: '1rem',
+                px: 2,
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  transform: 'translateY(-1px)'
+                },
+                transition: 'all 0.2s ease'
+              }}
+            >
               Login
             </Button>
-            <Button color="inherit" onClick={() => navigate('/register')}>
+            <Button 
+              color="inherit" 
+              onClick={() => navigate('/register')}
+              sx={{
+                color: 'white',
+                fontWeight: 500,
+                textTransform: 'none',
+                fontSize: '1rem',
+                px: 2,
+                ml: 1,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                borderRadius: '20px',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.5)',
+                  transform: 'translateY(-1px)'
+                },
+                transition: 'all 0.2s ease'
+              }}
+            >
               Register
             </Button>
           </>

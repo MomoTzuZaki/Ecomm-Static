@@ -1,8 +1,8 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
+const { sequelize, testConnection } = require('./config/database');
 
 // Load environment variables
 dotenv.config();
@@ -18,13 +18,26 @@ app.use(express.urlencoded({ extended: true }));
 // Serve static files (for uploaded images)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/techcycle', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log('Connected to MongoDB'))
-.catch(err => console.error('MongoDB connection error:', err));
+// Database connection and initialization
+const initApp = async () => {
+  try {
+    // Test connection
+    await testConnection();
+    
+    // Import models to register them
+    require('./models');
+    
+    // Skip sync since we're using existing database schema
+    console.log('✅ Database models loaded successfully!');
+    
+  } catch (error) {
+    console.error('❌ Database initialization failed:', error);
+    process.exit(1);
+  }
+};
+
+// Initialize the app
+initApp();
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));

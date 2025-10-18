@@ -1,6 +1,7 @@
 const express = require('express');
-const Product = require('../models/Product');
-const auth = require('../middleware/auth');
+const { Op } = require('sequelize');
+const { Product, User, Category } = require('../models');
+const { auth } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -19,38 +20,61 @@ router.get('/', async (req, res) => {
       sortOrder = 'desc'
     } = req.query;
 
-    // Build filter object
-    const filter = { status: 'approved' };
+    // Build where clause
+    const where = { status: 'approved' };
 
-    if (category) filter.category = category;
-    if (condition) filter.condition = condition;
-    if (minPrice) filter.price = { ...filter.price, $gte: parseFloat(minPrice) };
-    if (maxPrice) filter.price = { ...filter.price, $lte: parseFloat(maxPrice) };
+    if (category) where.categoryId = category;
+    if (condition) where.condition = condition;
+    if (minPrice || maxPrice) {
+      where.price = {};
+      if (minPrice) where.price[Op.gte] = parseFloat(minPrice);
+      if (maxPrice) where.price[Op.lte] = parseFloat(maxPrice);
+    }
     if (search) {
-      filter.$text = { $search: search };
+      where[Op.or] = [
+        { title: { [Op.iLike]: `%${search}%` } },
+        { description: { [Op.iLike]: `%${search}%` } }
+      ];
     }
 
-    // Build sort object
-    const sort = {};
-    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+    // Build order clause
+    const order = [];
+    if (sortBy === 'datePosted') {
+      order.push(['datePosted', sortOrder.toUpperCase()]);
+    } else if (sortBy === 'price') {
+      order.push(['price', sortOrder.toUpperCase()]);
+    } else {
+      order.push(['createdAt', sortOrder.toUpperCase()]);
+    }
 
     // Execute query with pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const products = await Product.find(filter)
-      .populate('seller', 'username isVerified sellerInfo')
-      .sort(sort)
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    const total = await Product.countDocuments(filter);
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { count, rows: products } = await Product.findAndCountAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: 'seller',
+          attributes: ['id', 'username', 'isVerified', 'sellerRating']
+        },
+        {
+          model: Category,
+          as: 'category',
+          attributes: ['id', 'name']
+        }
+      ],
+      order,
+      limit: parseInt(limit),
+      offset
+    });
 
     res.json({
       products,
       pagination: {
         currentPage: parseInt(page),
-        totalPages: Math.ceil(total / parseInt(limit)),
-        totalProducts: total,
-        hasNext: skip + products.length < total,
+        totalPages: Math.ceil(count / parseInt(limit)),
+        totalProducts: count,
+        hasNext: offset + products.length < count,
         hasPrev: parseInt(page) > 1,
       }
     });
@@ -63,16 +87,27 @@ router.get('/', async (req, res) => {
 // Get single product
 router.get('/:id', async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id)
-      .populate('seller', 'username email isVerified sellerInfo');
+    const product = await Product.findByPk(req.params.id, {
+      include: [
+        {
+          model: User,
+          as: 'seller',
+          attributes: ['id', 'username', 'email', 'isVerified', 'sellerRating']
+        },
+        {
+          model: Category,
+          as: 'category',
+          attributes: ['id', 'name']
+        }
+      ]
+    });
 
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
     // Increment view count
-    product.views += 1;
-    await product.save();
+    await product.incrementViews();
 
     res.json({ product });
   } catch (error) {
@@ -90,11 +125,10 @@ router.post('/', auth, async (req, res) => {
 
     const productData = {
       ...req.body,
-      seller: req.userId,
+      sellerId: req.userId,
     };
 
-    const product = new Product(productData);
-    await product.save();
+    const product = await Product.create(productData);
 
     res.status(201).json({
       message: 'Product created successfully',
@@ -109,22 +143,18 @@ router.post('/', auth, async (req, res) => {
 // Update product
 router.put('/:id', auth, async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findByPk(req.params.id);
 
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
     // Check if user owns the product or is admin
-    if (product.seller.toString() !== req.userId && req.user.role !== 'admin') {
+    if (product.sellerId !== req.userId && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const updatedProduct = await Product.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    ).populate('seller', 'username email isVerified sellerInfo');
+    const updatedProduct = await product.update(req.body);
 
     res.json({
       message: 'Product updated successfully',
@@ -139,18 +169,18 @@ router.put('/:id', auth, async (req, res) => {
 // Delete product
 router.delete('/:id', auth, async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findByPk(req.params.id);
 
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
     // Check if user owns the product or is admin
-    if (product.seller.toString() !== req.userId && req.user.role !== 'admin') {
+    if (product.sellerId !== req.userId && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    await Product.findByIdAndDelete(req.params.id);
+    await product.destroy();
 
     res.json({ message: 'Product deleted successfully' });
   } catch (error) {
@@ -169,9 +199,17 @@ router.get('/user/:userId', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const products = await Product.find({ seller: userId })
-      .populate('seller', 'username email isVerified')
-      .sort({ createdAt: -1 });
+    const products = await Product.findAll({
+      where: { sellerId: userId },
+      include: [
+        {
+          model: User,
+          as: 'seller',
+          attributes: ['id', 'username', 'email', 'isVerified']
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
 
     res.json({ products });
   } catch (error) {

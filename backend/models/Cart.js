@@ -1,50 +1,48 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const cartSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+const Cart = sequelize.define('Cart', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
   },
-  items: [{
-    product: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Product',
-      required: true
-    },
-    addedAt: {
-      type: Date,
-      default: Date.now
+  userId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    field: 'user_id',
+    references: {
+      model: 'users',
+      key: 'id'
     }
-  }],
-  totalItems: {
-    type: Number,
-    default: 0
   },
-  totalPrice: {
-    type: Number,
-    default: 0
+  productId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    field: 'product_id',
+    references: {
+      model: 'products',
+      key: 'id'
+    }
+  },
+  quantity: {
+    type: DataTypes.INTEGER,
+    defaultValue: 1,
+    validate: {
+      min: 1
+    }
   }
 }, {
-  timestamps: true
+  tableName: 'cart',
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  indexes: [
+    {
+      unique: true,
+      fields: ['user_id', 'product_id']
+    }
+  ]
 });
 
-// Calculate totals before saving
-cartSchema.pre('save', function(next) {
-  this.totalItems = this.items.length;
-  this.totalPrice = this.items.reduce((total, item) => {
-    return total + item.product.price;
-  }, 0);
-  next();
-});
-
-// Populate product details when retrieving cart
-cartSchema.pre(/^find/, function(next) {
-  this.populate({
-    path: 'items.product',
-    select: 'title price images seller'
-  });
-  next();
-});
-
-module.exports = mongoose.model('Cart', cartSchema);
+module.exports = Cart;

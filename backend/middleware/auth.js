@@ -10,13 +10,15 @@ const auth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId).select('-password');
+    const user = await User.findByPk(decoded.userId, {
+      attributes: { exclude: ['password'] }
+    });
 
     if (!user) {
       return res.status(401).json({ message: 'Token is not valid' });
     }
 
-    req.userId = user._id;
+    req.userId = user.id;
     req.user = user;
     next();
   } catch (error) {
@@ -25,4 +27,16 @@ const auth = async (req, res, next) => {
   }
 };
 
-module.exports = auth;
+const adminAuth = async (req, res, next) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Admin role required.' });
+    }
+    next();
+  } catch (error) {
+    console.error('Admin auth middleware error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+module.exports = { auth, adminAuth };

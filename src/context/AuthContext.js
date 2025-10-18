@@ -64,12 +64,17 @@ export const AuthProvider = ({ children }) => {
     return user && user.role === 'admin';
   };
 
+  const isSeller = () => {
+    return user && user.role === 'seller' && user.isVerified === true;
+  };
+
   const value = {
     user,
     login,
     register,
     logout,
     isAdmin,
+    isSeller,
     loading
   };
 

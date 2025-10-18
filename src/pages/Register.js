@@ -16,7 +16,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 
 const schema = yup.object({
-  name: yup.string().required('Name is required'),
+  username: yup.string().min(3, 'Username must be at least 3 characters').required('Username is required'),
   email: yup.string().email('Invalid email').required('Email is required'),
   password: yup.string().min(6, 'Password must be at least 6 characters').required('Password is required'),
   confirmPassword: yup.string()
@@ -86,13 +86,13 @@ const Register = () => {
               margin="normal"
               required
               fullWidth
-              id="name"
-              label="Full Name"
-              autoComplete="name"
+              id="username"
+              label="Username"
+              autoComplete="username"
               autoFocus
-              {...register('name')}
-              error={!!errors.name}
-              helperText={errors.name?.message}
+              {...register('username')}
+              error={!!errors.username}
+              helperText={errors.username?.message}
             />
             <TextField
               margin="normal"

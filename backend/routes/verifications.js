@@ -1,7 +1,6 @@
 const express = require('express');
-const Verification = require('../models/Verification');
-const User = require('../models/User');
-const auth = require('../middleware/auth');
+const { Verification, User } = require('../models');
+const { auth } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -21,8 +20,10 @@ router.post('/', auth, async (req, res) => {
 
     // Check if user already has a pending verification
     const existingVerification = await Verification.findOne({
-      userId: req.userId,
-      status: 'pending'
+      where: {
+        userId: req.userId,
+        status: 'pending'
+      }
     });
 
     if (existingVerification) {
@@ -35,7 +36,7 @@ router.post('/', auth, async (req, res) => {
     const verificationId = `VER-${Date.now()}`;
 
     // Create verification request
-    const verification = new Verification({
+    const verification = await Verification.create({
       userId: req.userId,
       userEmail: req.user.email,
       fullName,
@@ -49,12 +50,12 @@ router.post('/', auth, async (req, res) => {
       verificationId,
     });
 
-    await verification.save();
-
     // Update user's verification status
-    await User.findByIdAndUpdate(req.userId, {
+    await User.update({
       verificationStatus: 'pending',
       verificationId: verificationId,
+    }, {
+      where: { id: req.userId }
     });
 
     res.status(201).json({
@@ -70,8 +71,10 @@ router.post('/', auth, async (req, res) => {
 // Get user's verification status
 router.get('/my-status', auth, async (req, res) => {
   try {
-    const verification = await Verification.findOne({ userId: req.userId })
-      .sort({ createdAt: -1 });
+    const verification = await Verification.findOne({
+      where: { userId: req.userId },
+      order: [['createdAt', 'DESC']]
+    });
 
     if (!verification) {
       return res.json({ verification: null });
@@ -91,10 +94,21 @@ router.get('/all', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const verifications = await Verification.find()
-      .populate('userId', 'username email')
-      .populate('reviewedBy', 'username')
-      .sort({ createdAt: -1 });
+    const verifications = await Verification.findAll({
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'username', 'email']
+        },
+        {
+          model: User,
+          as: 'reviewer',
+          attributes: ['id', 'username']
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
 
     res.json({ verifications });
   } catch (error) {
@@ -113,31 +127,33 @@ router.put('/:id/status', auth, async (req, res) => {
     const { status, rejectionReason } = req.body;
     const verificationId = req.params.id;
 
-    const verification = await Verification.findById(verificationId);
+    const verification = await Verification.findByPk(verificationId);
     if (!verification) {
       return res.status(404).json({ message: 'Verification not found' });
     }
 
     // Update verification
-    verification.status = status;
-    verification.reviewedAt = new Date();
-    verification.reviewedBy = req.userId;
-    if (rejectionReason) {
-      verification.rejectionReason = rejectionReason;
-    }
-
-    await verification.save();
+    await verification.update({
+      status: status,
+      reviewedAt: new Date(),
+      reviewedBy: req.userId,
+      rejectionReason: rejectionReason || null
+    });
 
     // Update user's role and verification status
     if (status === 'approved') {
-      await User.findByIdAndUpdate(verification.userId, {
+      await User.update({
         role: 'seller',
         isVerified: true,
         verificationStatus: 'approved',
+      }, {
+        where: { id: verification.userId }
       });
     } else if (status === 'rejected') {
-      await User.findByIdAndUpdate(verification.userId, {
+      await User.update({
         verificationStatus: 'rejected',
+      }, {
+        where: { id: verification.userId }
       });
     }
 

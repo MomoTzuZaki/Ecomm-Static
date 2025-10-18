@@ -1,104 +1,159 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const productSchema = new mongoose.Schema({
+const Product = sequelize.define('Product', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  sellerId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    field: 'seller_id',
+    references: {
+      model: 'users',
+      key: 'id'
+    }
+  },
+  categoryId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    field: 'category_id',
+    references: {
+      model: 'categories',
+      key: 'id'
+    }
+  },
   title: {
-    type: String,
-    required: true,
-    trim: true,
+    type: DataTypes.STRING(200),
+    allowNull: false,
+    validate: {
+      len: [1, 200]
+    }
   },
   description: {
-    type: String,
-    required: true,
+    type: DataTypes.TEXT,
+    allowNull: false
   },
   price: {
-    type: Number,
-    required: true,
-    min: 0,
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    validate: {
+      min: 0
+    }
   },
   originalPrice: {
-    type: Number,
-    required: true,
-    min: 0,
-  },
-  category: {
-    type: String,
-    required: true,
-    enum: ['Smartphones', 'Laptops', 'Audio', 'Cameras', 'Tablets', 'Accessories'],
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    field: 'original_price',
+    validate: {
+      min: 0
+    }
   },
   condition: {
-    type: String,
-    required: true,
-    enum: ['Excellent', 'Good', 'Fair', 'Poor'],
+    type: DataTypes.ENUM('Excellent', 'Good', 'Fair', 'Poor'),
+    allowNull: false
   },
   brand: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING(50),
+    allowNull: false
   },
   model: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING(100),
+    allowNull: false
   },
-  // Technical specifications
   specifications: {
-    storage: String,
-    color: String,
-    screenSize: String,
-    operatingSystem: String,
-    batteryHealth: String,
-    network: String,
-    camera: String,
-    material: String,
-    dimensions: String,
-    weight: String,
-    warranty: String,
-    accessories: String,
-    // Custom specifications
-    custom: mongoose.Schema.Types.Mixed,
+    type: DataTypes.JSONB,
+    allowNull: true,
+    defaultValue: {}
   },
-  images: [{
-    type: String, // Base64 encoded images or URLs
-  }],
-  highlights: [{
-    type: String,
-  }],
-  seller: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
+  images: {
+    type: DataTypes.ARRAY(DataTypes.TEXT),
+    defaultValue: []
+  },
+  highlights: {
+    type: DataTypes.ARRAY(DataTypes.TEXT),
+    defaultValue: []
   },
   location: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING(100),
+    allowNull: false
   },
   status: {
-    type: String,
-    enum: ['pending', 'approved', 'rejected', 'sold', 'inactive'],
-    default: 'pending',
+    type: DataTypes.ENUM('pending', 'approved', 'rejected', 'sold', 'inactive'),
+    defaultValue: 'pending'
   },
   isPremium: {
-    type: Boolean,
-    default: false,
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'is_premium'
+  },
+  premiumExpiresAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'premium_expires_at'
   },
   views: {
-    type: Number,
-    default: 0,
+    type: DataTypes.INTEGER,
+    defaultValue: 0
   },
-  isFavorite: {
-    type: Boolean,
-    default: false,
+  favoritesCount: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    field: 'favorites_count'
   },
   datePosted: {
-    type: Date,
-    default: Date.now,
-  },
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+    field: 'date_posted'
+  }
 }, {
+  tableName: 'products',
   timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  indexes: [
+    {
+      fields: ['seller_id']
+    },
+    {
+      fields: ['category_id']
+    },
+    {
+      fields: ['status']
+    },
+    {
+      fields: ['is_premium']
+    },
+    {
+      fields: ['price']
+    },
+    {
+      fields: ['created_at']
+    }
+  ]
 });
 
-// Index for better search performance
-productSchema.index({ title: 'text', description: 'text' });
-productSchema.index({ category: 1, condition: 1 });
-productSchema.index({ price: 1 });
-productSchema.index({ status: 1, isPremium: 1 });
+// Instance methods
+Product.prototype.incrementViews = function() {
+  this.views += 1;
+  return this.save();
+};
 
-module.exports = mongoose.model('Product', productSchema);
+Product.prototype.isAvailable = function() {
+  return this.status === 'approved';
+};
+
+Product.prototype.isPremiumActive = function() {
+  return this.isPremium && this.premiumExpiresAt && new Date() < this.premiumExpiresAt;
+};
+
+Product.prototype.getDiscountPercentage = function() {
+  if (this.originalPrice > this.price) {
+    return Math.round(((this.originalPrice - this.price) / this.originalPrice) * 100);
+  }
+  return 0;
+};
+
+module.exports = Product;

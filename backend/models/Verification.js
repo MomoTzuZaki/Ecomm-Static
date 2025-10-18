@@ -1,78 +1,118 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const verificationSchema = new mongoose.Schema({
+const Verification = sequelize.define('Verification', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
   userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
+    type: DataTypes.UUID,
+    allowNull: false,
+    field: 'user_id',
+    references: {
+      model: 'users',
+      key: 'id'
+    }
   },
   userEmail: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING(100),
+    allowNull: false,
+    field: 'user_email',
+    validate: {
+      isEmail: true
+    }
   },
   fullName: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING(100),
+    allowNull: false,
+    field: 'full_name'
   },
   address: {
-    type: String,
-    required: true,
+    type: DataTypes.TEXT,
+    allowNull: false
   },
   phoneNumber: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    field: 'phone_number'
   },
   idType: {
-    type: String,
-    required: true,
-    enum: ['Driver\'s License', 'Passport', 'National ID', 'SSS ID', 'PhilHealth ID', 'TIN ID', 'Voter\'s ID', 'Postal ID'],
+    type: DataTypes.ENUM('Driver\'s License', 'Passport', 'National ID', 'SSS ID', 'PhilHealth ID', 'TIN ID', 'Voter\'s ID', 'Postal ID'),
+    allowNull: false,
+    field: 'id_type'
   },
   idNumber: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING(50),
+    allowNull: false,
+    field: 'id_number'
   },
   idImage: {
-    type: String, // Base64 encoded image
-    required: true,
+    type: DataTypes.TEXT, // Base64 encoded image
+    allowNull: false,
+    field: 'id_image'
   },
   selfieImage: {
-    type: String, // Base64 encoded image
-    required: true,
+    type: DataTypes.TEXT, // Base64 encoded image
+    allowNull: false,
+    field: 'selfie_image'
   },
   proofOfOwnership: {
-    type: String, // Base64 encoded image (optional)
+    type: DataTypes.TEXT, // Base64 encoded image (optional)
+    allowNull: true,
+    field: 'proof_of_ownership'
   },
   status: {
-    type: String,
-    enum: ['pending', 'approved', 'rejected'],
-    default: 'pending',
+    type: DataTypes.ENUM('pending', 'approved', 'rejected'),
+    defaultValue: 'pending'
   },
   verificationId: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING(100),
+    allowNull: false,
     unique: true,
+    field: 'verification_id'
   },
   submittedAt: {
-    type: Date,
-    default: Date.now,
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+    field: 'submitted_at'
   },
   reviewedAt: {
-    type: Date,
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'reviewed_at'
   },
   reviewedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    type: DataTypes.UUID,
+    allowNull: true,
+    field: 'reviewed_by',
+    references: {
+      model: 'users',
+      key: 'id'
+    }
   },
   rejectionReason: {
-    type: String,
-  },
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'rejection_reason'
+  }
 }, {
+  tableName: 'seller_verifications',
   timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  indexes: [
+    {
+      fields: ['user_id']
+    },
+    {
+      fields: ['status']
+    },
+    {
+      fields: ['verification_id']
+    }
+  ]
 });
 
-// Index for better query performance
-verificationSchema.index({ userId: 1 });
-verificationSchema.index({ status: 1 });
-verificationSchema.index({ verificationId: 1 });
-
-module.exports = mongoose.model('Verification', verificationSchema);
+module.exports = Verification;

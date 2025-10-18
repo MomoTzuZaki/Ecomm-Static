@@ -1,89 +1,153 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 const bcrypt = require('bcryptjs');
 
-const userSchema = new mongoose.Schema({
+const User = sequelize.define('User', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
   username: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING(50),
+    allowNull: false,
     unique: true,
-    trim: true,
+    validate: {
+      len: [3, 50]
+    }
   },
   email: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING(100),
+    allowNull: false,
     unique: true,
-    lowercase: true,
+    validate: {
+      isEmail: true
+    }
   },
   password: {
-    type: String,
-    required: true,
-    minlength: 6,
+    type: DataTypes.STRING(255),
+    allowNull: false,
+    validate: {
+      len: [6, 255]
+    }
   },
   role: {
-    type: String,
-    enum: ['user', 'seller', 'admin'],
-    default: 'user',
+    type: DataTypes.ENUM('user', 'seller', 'admin'),
+    defaultValue: 'user'
   },
   isVerified: {
-    type: Boolean,
-    default: false,
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'is_verified'
   },
   verificationStatus: {
-    type: String,
-    enum: ['none', 'pending', 'approved', 'rejected'],
-    default: 'none',
+    type: DataTypes.ENUM('none', 'pending', 'approved', 'rejected'),
+    defaultValue: 'none',
+    field: 'verification_status'
   },
   verificationId: {
-    type: String,
-    default: null,
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'verification_id'
   },
-  profile: {
-    firstName: String,
-    lastName: String,
-    phone: String,
-    address: String,
-    avatar: String,
+  firstName: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'first_name'
   },
-  sellerInfo: {
-    businessName: String,
-    description: String,
-    rating: {
-      type: Number,
-      default: 0,
-    },
-    totalSales: {
-      type: Number,
-      default: 0,
-    },
-    responseRate: {
-      type: String,
-      default: '0%',
-    },
-    responseTime: {
-      type: String,
-      default: 'N/A',
-    },
+  lastName: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'last_name'
   },
+  phone: {
+    type: DataTypes.STRING(20),
+    allowNull: true
+  },
+  address: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  avatar: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
+  businessName: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'business_name'
+  },
+  businessDescription: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'business_description'
+  },
+  sellerRating: {
+    type: DataTypes.DECIMAL(3, 2),
+    defaultValue: 0.00,
+    field: 'seller_rating'
+  },
+  totalSales: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    field: 'total_sales'
+  },
+  responseRate: {
+    type: DataTypes.STRING(10),
+    defaultValue: '0%',
+    field: 'response_rate'
+  },
+  responseTime: {
+    type: DataTypes.STRING(20),
+    defaultValue: 'N/A',
+    field: 'response_time'
+  },
+  isActive: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+    field: 'is_active'
+  },
+  lastLogin: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'last_login'
+  }
 }, {
+  tableName: 'users',
   timestamps: true,
-});
-
-// Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  hooks: {
+    beforeCreate: async (user) => {
+      if (user.password) {
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(user.password, salt);
+      }
+    },
+    beforeUpdate: async (user) => {
+      if (user.changed('password')) {
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(user.password, salt);
+      }
+    }
   }
 });
 
-// Compare password method
-userSchema.methods.comparePassword = async function(candidatePassword) {
+// Instance methods
+User.prototype.comparePassword = async function(candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-module.exports = mongoose.model('User', userSchema);
+User.prototype.getFullName = function() {
+  return `${this.firstName || ''} ${this.lastName || ''}`.trim() || this.username;
+};
+
+User.prototype.isSeller = function() {
+  return this.role === 'seller' && this.verificationStatus === 'approved';
+};
+
+User.prototype.isAdmin = function() {
+  return this.role === 'admin';
+};
+
+module.exports = User;

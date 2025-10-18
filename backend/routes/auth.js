@@ -1,7 +1,8 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const auth = require('../middleware/auth');
+const { Op } = require('sequelize');
+const { User } = require('../models');
+const { auth } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -12,7 +13,9 @@ router.post('/register', async (req, res) => {
 
     // Check if user already exists
     const existingUser = await User.findOne({
-      $or: [{ email }, { username }]
+      where: {
+        [Op.or]: [{ email }, { username }]
+      }
     });
 
     if (existingUser) {
@@ -22,18 +25,16 @@ router.post('/register', async (req, res) => {
     }
 
     // Create new user
-    const user = new User({
+    const user = await User.create({
       username,
       email,
       password,
     });
 
-    await user.save();
-
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user._id, role: user.role },
-      process.env.JWT_SECRET,
+      { userId: user.id, role: user.role },
+      process.env.JWT_SECRET || 'tech-cycle-default-secret-key-2024',
       { expiresIn: '7d' }
     );
 
@@ -41,7 +42,7 @@ router.post('/register', async (req, res) => {
       message: 'User registered successfully',
       token,
       user: {
-        id: user._id,
+        id: user.id,
         username: user.username,
         email: user.email,
         role: user.role,
@@ -61,7 +62,7 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     // Find user by email
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ where: { email } });
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
@@ -74,8 +75,8 @@ router.post('/login', async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user._id, role: user.role },
-      process.env.JWT_SECRET,
+      { userId: user.id, role: user.role },
+      process.env.JWT_SECRET || 'tech-cycle-default-secret-key-2024',
       { expiresIn: '7d' }
     );
 
@@ -83,7 +84,7 @@ router.post('/login', async (req, res) => {
       message: 'Login successful',
       token,
       user: {
-        id: user._id,
+        id: user.id,
         username: user.username,
         email: user.email,
         role: user.role,
@@ -101,7 +102,9 @@ router.post('/login', async (req, res) => {
 // Get current user
 router.get('/me', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select('-password');
+    const user = await User.findByPk(req.userId, {
+      attributes: { exclude: ['password'] }
+    });
     res.json(user);
   } catch (error) {
     console.error('Get user error:', error);
