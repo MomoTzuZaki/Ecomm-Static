@@ -15,8 +15,4 @@ export const clearTechCycleLocalStorage = () => {
   
   console.log('🧹 Cleared all Tech Cycle localStorage data');
 };
-
-// Auto-clear on import (for development)
-if (process.env.NODE_ENV === 'development') {
-  clearTechCycleLocalStorage();
-}
+// Note: No auto-clear on import. Call clearTechCycleLocalStorage() manually when needed.

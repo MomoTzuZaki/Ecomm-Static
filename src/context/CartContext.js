@@ -85,6 +85,10 @@ export const CartProvider = ({ children }) => {
     return cartItems.reduce((count, item) => count + item.quantity, 0);
   };
 
+  const isInCart = (productId) => {
+    return cartItems.some(item => String(item.product?.id) === String(productId));
+  };
+
   const toggleCart = () => {
     setIsCartOpen(prev => !prev);
   };
@@ -103,6 +107,7 @@ export const CartProvider = ({ children }) => {
     clearCart,
     getCartTotal,
     getCartItemCount,
+    isInCart,
     toggleCart,
     closeCart,
   };

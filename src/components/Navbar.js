@@ -252,6 +252,14 @@ const Navbar = () => {
               <MenuItem onClick={() => { navigate('/dashboard'); handleClose(); }}>
                 Dashboard
               </MenuItem>
+              <MenuItem onClick={() => { navigate('/orders'); handleClose(); }}>
+                My Orders
+              </MenuItem>
+              {user.role === 'seller' && (
+                <MenuItem onClick={() => { navigate('/seller-orders'); handleClose(); }}>
+                  Seller Orders
+                </MenuItem>
+              )}
               {user.role === 'user' && (
                 <MenuItem onClick={() => { navigate('/verify-seller'); handleClose(); }}>
                   Become a Seller
@@ -260,6 +268,11 @@ const Navbar = () => {
               {isAdmin() && (
                 <MenuItem onClick={() => { navigate('/admin'); handleClose(); }}>
                   Admin Panel
+                </MenuItem>
+              )}
+              {isAdmin() && (
+                <MenuItem onClick={() => { navigate('/admin/transactions'); handleClose(); }}>
+                  Transactions
                 </MenuItem>
               )}
               <MenuItem onClick={handleLogout}>Logout</MenuItem>

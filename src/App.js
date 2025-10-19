@@ -6,7 +6,6 @@ import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { ProductProvider } from './context/ProductContext';
 import { NotificationProvider } from './context/NotificationContext';
-import { clearTechCycleLocalStorage } from './utils/clearLocalStorage';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
@@ -18,13 +17,17 @@ import UserDashboard from './pages/UserDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import SellProduct from './pages/SellProduct';
 import Cart from './pages/Cart';
+import Checkout from './pages/Checkout';
+import OrderConfirmation from './pages/OrderConfirmation';
+import Orders from './pages/Orders';
+import SellerOrders from './pages/SellerOrders';
+import AdminTransactions from './pages/AdminTransactions';
 import EditProduct from './pages/EditProduct';
 import SellerVerification from './pages/SellerVerification';
 import AdminVerification from './pages/AdminVerification';
 import './App.css';
 
-// Clear localStorage on app startup to ensure clean database-only operation
-clearTechCycleLocalStorage();
+// Development helper available at ./utils/clearLocalStorage if needed
 
 const theme = createTheme({
   palette: {
@@ -169,8 +172,13 @@ function App() {
               <Route path="/admin" element={<ProtectedRoute requireAdmin={true}><AdminDashboard /></ProtectedRoute>} />
               <Route path="/admin/edit/:id" element={<ProtectedRoute requireAdmin={true}><EditProduct /></ProtectedRoute>} />
               <Route path="/admin/verification" element={<ProtectedRoute requireAdmin={true}><AdminVerification /></ProtectedRoute>} />
+              <Route path="/admin/transactions" element={<ProtectedRoute requireAdmin={true}><AdminTransactions /></ProtectedRoute>} />
               <Route path="/sell" element={<ProtectedRoute requireSeller={true}><SellProduct /></ProtectedRoute>} />
               <Route path="/cart" element={<Cart />} />
+              <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+              <Route path="/order-confirmation" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
+              <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+              <Route path="/seller-orders" element={<ProtectedRoute><SellerOrders /></ProtectedRoute>} />
               <Route path="/verify-seller" element={<SellerVerification />} />
             </Routes>
             </div>

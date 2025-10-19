@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Container,
   Paper,
@@ -20,6 +20,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useProducts } from '../context/ProductContext';
 
 const schema = yup.object({
   title: yup.string().required('Product title is required'),
@@ -73,6 +74,7 @@ const SellProduct = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const { addProduct } = useProducts();
 
   const {
     control,
@@ -108,6 +110,7 @@ const SellProduct = () => {
       // Product Information
       dimensions: '',
       weight: '',
+      imageUrl: '',
     },
   });
 
@@ -115,17 +118,25 @@ const SellProduct = () => {
     setLoading(true);
     
     try {
-      // Simulate API call - replace with actual backend integration
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log('Product data:', data);
-      setSuccess(true);
-      reset();
-      
-      // Redirect to dashboard after successful submission
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 2000);
+      const now = new Date();
+      const newProduct = {
+        title: data.title,
+        description: data.description,
+        price: Number(data.price),
+        originalPrice: data.originalPrice ? Number(data.originalPrice) : undefined,
+        category: data.category,
+        condition: data.condition,
+        images: data.imageUrl ? [data.imageUrl] : [],
+        location: data.location,
+        datePosted: now.toDateString(),
+        seller: { name: user?.username || user?.email || 'You', isVerified: true },
+      };
+      const result = await addProduct(newProduct);
+      if (result.success) {
+        setSuccess(true);
+        reset();
+        setTimeout(() => navigate('/products'), 1200);
+      }
     } catch (error) {
       console.error('Error submitting product:', error);
     } finally {
@@ -198,6 +209,59 @@ const SellProduct = () => {
                 )}
               />
             </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <Controller
+                name="imageUrl"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    label="Image URL (preview)"
+                    placeholder="https://..."
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Live Preview */}
+            <Grid item xs={12}>
+              <Card variant="outlined" sx={{ p: 2 }}>
+                <CardContent>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Preview
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                    <Controller
+                      name="imageUrl"
+                      control={control}
+                      render={({ field: { value } }) => (
+                        <Box sx={{ width: 160, height: 120, bgcolor: 'grey.100', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {value ? (
+                            <img src={value} alt="preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <Typography variant="caption" color="text.secondary">No image</Typography>
+                          )}
+                        </Box>
+                      )}
+                    />
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="h6">
+                        <Controller name="title" control={control} render={({ field: { value } }) => <>{value || 'Product title'}</>} />
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        <Controller name="description" control={control} render={({ field: { value } }) => <>{value || 'Product description...'}</>} />
+                      </Typography>
+                      <Typography variant="h6" color="primary">
+                        <Controller name="price" control={control} render={({ field: { value } }) => <>${value || '0'}</>} />
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+            
 
             <Grid item xs={12} sm={6}>
               <Controller

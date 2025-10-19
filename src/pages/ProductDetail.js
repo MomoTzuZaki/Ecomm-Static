@@ -111,22 +111,29 @@ const ProductDetail = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addToCart, isInCart } = useCart();
-  const { getProductById } = useProducts();
-  const [product, setProduct] = useState(() => getProductById(id) || mockProduct);
+  const { getProductById, getProductByIdSync } = useProducts();
+  const [product, setProduct] = useState(() => getProductByIdSync(id) || mockProduct);
   const [selectedImage, setSelectedImage] = useState(0);
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [message, setMessage] = useState('');
 
   // Update product when context data changes
   useEffect(() => {
-    const contextProduct = getProductById(id);
-    if (contextProduct) {
-      console.log('ProductDetail: Loading product from context:', contextProduct.title);
-      setProduct(contextProduct);
-    } else {
-      console.log('ProductDetail: Using fallback mockProduct:', mockProduct.title);
-    }
-  }, [id, getProductById]);
+    const load = async () => {
+      const initial = getProductByIdSync(id);
+      if (initial) {
+        setProduct(initial);
+        return;
+      }
+      try {
+        const fetched = await getProductById(id);
+        if (fetched) setProduct(fetched);
+      } catch (_) {
+        // keep mock
+      }
+    };
+    load();
+  }, [id, getProductById, getProductByIdSync]);
 
   const handleContactSeller = () => {
     if (!user) {
@@ -197,12 +204,12 @@ const ProductDetail = () => {
             <CardMedia
               component="img"
               height="400"
-              image={product.images[selectedImage]}
+              image={(product.images && product.images[selectedImage]) || 'https://picsum.photos/600/400'}
               alt={product.title}
               sx={{ objectFit: 'contain' }}
             />
             <Box sx={{ display: 'flex', gap: 1, p: 2, overflowX: 'auto' }}>
-              {product.images.map((image, index) => (
+              {(product.images || []).map((image, index) => (
                 <CardMedia
                   key={index}
                   component="img"
@@ -263,7 +270,7 @@ const ProductDetail = () => {
               Key Features
             </Typography>
             <List dense>
-              {product.highlights.map((highlight, index) => (
+              {(product.highlights || []).map((highlight, index) => (
                 <ListItem key={index} sx={{ py: 0.5 }}>
                   <CheckCircleIcon color="success" sx={{ mr: 1, fontSize: 20 }} />
                   <ListItemText primary={highlight} />
@@ -319,26 +326,26 @@ const ProductDetail = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                   <PersonIcon />
                   <Box>
-                    <Typography variant="subtitle1">{product.seller.name}</Typography>
+                    <Typography variant="subtitle1">{product.seller?.name || 'Seller'}</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      ⭐ {product.seller.rating} ({product.seller.totalSales} sales)
+                      ⭐ {product.seller?.rating || 'N/A'} ({product.seller?.totalSales || 0} sales)
                     </Typography>
                   </Box>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                   <LocationIcon fontSize="small" />
-                  <Typography variant="body2">{product.location}</Typography>
+                  <Typography variant="body2">{product.location || 'Unknown location'}</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <CalendarIcon fontSize="small" />
                   <Typography variant="body2">
-                    Member since {new Date(product.seller.joinDate).getFullYear()}
+                    Member since {product.seller?.joinDate ? new Date(product.seller.joinDate).getFullYear() : '—'}
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <SecurityIcon fontSize="small" />
                   <Typography variant="body2">
-                    Response Rate: {product.seller.responseRate}
+                    Response Rate: {product.seller?.responseRate || '—'}
                   </Typography>
                 </Box>
               </CardContent>
@@ -401,7 +408,7 @@ const ProductDetail = () => {
                 <TableContainer>
                   <Table size="small">
                     <TableBody>
-                      {Object.entries(product.specifications).map(([key, value]) => (
+                      {Object.entries(product.specifications || {}).map(([key, value]) => (
                         <TableRow key={key}>
                           <TableCell component="th" scope="row" sx={{ fontWeight: 'bold' }}>
                             {key}

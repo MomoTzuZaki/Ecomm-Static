@@ -180,7 +180,7 @@ const Cart = () => {
                 variant="contained"
                 fullWidth
                 size="large"
-                onClick={handleCheckout}
+                onClick={() => navigate('/checkout')}
                 startIcon={<CheckoutIcon />}
                 sx={{ mb: 2 }}
               >

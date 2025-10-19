@@ -70,6 +70,10 @@ export const ProductProvider = ({ children }) => {
     }
   };
 
+  const getProductByIdSync = (id) => {
+    return products.find(p => String(p.id) === String(id));
+  };
+
   const getMyProducts = async () => {
     try {
       return await productsAPI.getMyProducts();
@@ -93,10 +97,12 @@ export const ProductProvider = ({ children }) => {
   const value = {
     products,
     loading,
+    getAllProducts: () => products,
     addProduct,
     updateProduct,
     deleteProduct,
     getProductById,
+    getProductByIdSync,
     getMyProducts,
     refreshProducts,
   };
