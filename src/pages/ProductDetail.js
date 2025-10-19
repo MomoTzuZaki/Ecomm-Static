@@ -36,11 +36,13 @@ import {
   CheckCircle as CheckCircleIcon,
   Security as SecurityIcon,
   LocalShipping as ShippingIcon,
+  ShoppingCart as ShoppingCartIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useCart } from '../context/CartContext';
 import { useProducts } from '../context/ProductContext';
+import PaymentDialog from '../components/PaymentDialog';
+import { transactionAPI } from '../services/api';
 
 // Mock data - replace with actual API calls
 const mockProduct = {
@@ -110,12 +112,13 @@ const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { addToCart, isInCart } = useCart();
   const { getProductById, getProductByIdSync } = useProducts();
   const [product, setProduct] = useState(() => getProductByIdSync(id) || mockProduct);
   const [selectedImage, setSelectedImage] = useState(0);
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [message, setMessage] = useState('');
+  const [userHasOrdered, setUserHasOrdered] = useState(false);
 
   // Update product when context data changes
   useEffect(() => {
@@ -135,6 +138,31 @@ const ProductDetail = () => {
     load();
   }, [id, getProductById, getProductByIdSync]);
 
+  // Check if user has already ordered this product
+  useEffect(() => {
+    const checkUserOrder = async () => {
+      if (!user) {
+        setUserHasOrdered(false);
+        return;
+      }
+
+      try {
+        const response = await transactionAPI.getMyTransactions('buyer');
+        const userTransactions = response.transactions || [];
+        const existingOrder = userTransactions.find(t => 
+          t.productId === product.id && 
+          ['pending_payment', 'paid', 'admin_verification', 'completed'].includes(t.status)
+        );
+        setUserHasOrdered(!!existingOrder);
+      } catch (error) {
+        console.error('Error checking user orders:', error);
+        setUserHasOrdered(false);
+      }
+    };
+
+    checkUserOrder();
+  }, [user, product.id]);
+
   const handleContactSeller = () => {
     if (!user) {
       navigate('/login');
@@ -143,12 +171,82 @@ const ProductDetail = () => {
     setContactDialogOpen(true);
   };
 
+  const handleBuyNow = async () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    
+    // Check if product is available for purchase
+    if (product.status === 'sold') {
+      alert('This product has already been sold.');
+      return;
+    }
+    
+    if (product.status === 'pending_sale') {
+      alert('This product is already being ordered by another buyer. Please check back later or browse other products.');
+      return;
+    }
+    
+    // Check if user has already ordered this product
+    try {
+      const response = await transactionAPI.getMyTransactions('buyer');
+      const userTransactions = response.transactions || [];
+      const existingOrder = userTransactions.find(t => 
+        t.productId === product.id && 
+        ['pending_payment', 'paid', 'admin_verification', 'completed'].includes(t.status)
+      );
+      
+      if (existingOrder) {
+        alert('You have already placed an order for this product. You can only order each item once. Check your orders to see the status.');
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking existing orders:', error);
+      // Continue with purchase if we can't check orders
+    }
+    
+    setPaymentDialogOpen(true);
+  };
+
+  const handlePaymentSuccess = async (paymentData) => {
+    try {
+      // Create transaction
+      const transactionResponse = await transactionAPI.createTransaction(
+        product.id,
+        paymentData.shippingAddress,
+        paymentData.paymentMethod
+      );
+
+      // Process payment
+      await transactionAPI.processPayment(
+        transactionResponse.transaction.id,
+        paymentData.paymentMethod,
+        `PAY-${Date.now()}`, // Mock payment reference
+        paymentData.paymentDetails
+      );
+
+      // Show success message and navigate
+      alert('Payment successful! Your transaction is now pending admin verification.');
+      navigate('/orders');
+    } catch (error) {
+      console.error('Payment processing error:', error);
+      console.error('Error message:', error.message);
+      alert(error.message || 'Payment failed. Please try again.');
+    }
+  };
+
   const handleSendMessage = () => {
     // Simulate sending message
     console.log('Message sent:', message);
     setContactDialogOpen(false);
     setMessage('');
-    // Show success notification
+    
+    // Navigate to messages page after sending
+    navigate('/messages');
+    
+    // Show success notification (you can implement a toast notification here)
+    alert('Message sent! You can view your conversation in the Messages section.');
   };
 
   const handleToggleFavorite = () => {
@@ -171,13 +269,6 @@ const ProductDetail = () => {
     }
   };
 
-  const handleAddToCart = () => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-    addToCart(product);
-  };
 
   const getConditionColor = (condition) => {
     switch (condition) {
@@ -204,29 +295,37 @@ const ProductDetail = () => {
             <CardMedia
               component="img"
               height="400"
-              image={(product.images && product.images[selectedImage]) || 'https://picsum.photos/600/400'}
+              image={(product.images && product.images.length > 0 && product.images[selectedImage]) || 'https://picsum.photos/600/400'}
               alt={product.title}
               sx={{ objectFit: 'contain' }}
+              onError={(e) => {
+                e.target.src = 'https://picsum.photos/600/400';
+              }}
             />
-            <Box sx={{ display: 'flex', gap: 1, p: 2, overflowX: 'auto' }}>
-              {(product.images || []).map((image, index) => (
-                <CardMedia
-                  key={index}
-                  component="img"
-                  height="80"
-                  image={image}
-                  alt={`${product.title} ${index + 1}`}
-                  sx={{
-                    width: 80,
-                    cursor: 'pointer',
-                    border: selectedImage === index ? 2 : 1,
-                    borderColor: selectedImage === index ? 'primary.main' : 'grey.300',
-                    borderRadius: 1,
-                  }}
-                  onClick={() => setSelectedImage(index)}
-                />
-              ))}
-            </Box>
+            {product.images && product.images.length > 0 && (
+              <Box sx={{ display: 'flex', gap: 1, p: 2, overflowX: 'auto' }}>
+                {product.images.map((image, index) => (
+                  <CardMedia
+                    key={index}
+                    component="img"
+                    height="80"
+                    image={image}
+                    alt={`${product.title} ${index + 1}`}
+                    sx={{
+                      width: 80,
+                      cursor: 'pointer',
+                      border: selectedImage === index ? 2 : 1,
+                      borderColor: selectedImage === index ? 'primary.main' : 'grey.300',
+                      borderRadius: 1,
+                    }}
+                    onClick={() => setSelectedImage(index)}
+                    onError={(e) => {
+                      e.target.src = 'https://picsum.photos/80/80';
+                    }}
+                  />
+                ))}
+              </Box>
+            )}
           </Card>
         </Grid>
 
@@ -352,42 +451,117 @@ const ProductDetail = () => {
             </Card>
           </Box>
 
-          {/* Action Buttons */}
-          <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Button
-                variant="contained"
-                size="large"
-                fullWidth
-                onClick={handleAddToCart}
-                disabled={isInCart(product.id)}
-                sx={{ 
-                  bgcolor: isInCart(product.id) ? 'success.main' : 'primary.main',
-                  '&:hover': {
-                    bgcolor: isInCart(product.id) ? 'success.dark' : 'primary.dark',
-                  }
-                }}
-              >
-                {isInCart(product.id) ? 'In Cart' : 'Add to Cart'}
-              </Button>
-              <Button
-                variant="outlined"
-                size="large"
-                fullWidth
-                onClick={handleContactSeller}
-              >
-                Contact Seller
-              </Button>
-            </Box>
-            <Button
-              variant="outlined"
-              size="large"
-              fullWidth
-              onClick={() => navigate('/products')}
-            >
-              Back to Browse
-            </Button>
-          </Box>
+              {/* Action Buttons */}
+              <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
+                {product.status === 'sold' ? (
+                  <Button
+                    variant="contained"
+                    size="large"
+                    fullWidth
+                    disabled
+                    sx={{
+                      bgcolor: 'grey.400',
+                      color: 'white'
+                    }}
+                  >
+                    SOLD
+                  </Button>
+                ) : product.status === 'pending_sale' ? (
+                  <Button
+                    variant="contained"
+                    size="large"
+                    fullWidth
+                    disabled
+                    sx={{
+                      bgcolor: 'warning.main',
+                      color: 'white'
+                    }}
+                  >
+                    BEING ORDERED
+                  </Button>
+                ) : userHasOrdered ? (
+                  <Button
+                    variant="contained"
+                    size="large"
+                    fullWidth
+                    disabled
+                    sx={{
+                      bgcolor: 'info.main',
+                      color: 'white'
+                    }}
+                  >
+                    YOU ALREADY ORDERED THIS
+                  </Button>
+                ) : (
+                  <Button
+                    variant="contained"
+                    size="large"
+                    fullWidth
+                    startIcon={<ShoppingCartIcon />}
+                    onClick={handleBuyNow}
+                    sx={{
+                      bgcolor: 'success.main',
+                      '&:hover': {
+                        bgcolor: 'success.dark',
+                      }
+                    }}
+                  >
+                    Buy Now - ${product.price}
+                  </Button>
+                )}
+                
+                {userHasOrdered && (
+                  <Box sx={{ 
+                    p: 2, 
+                    bgcolor: 'info.light', 
+                    borderRadius: 1, 
+                    textAlign: 'center',
+                    mb: 1
+                  }}>
+                    <Typography variant="body2" color="info.dark" sx={{ mb: 1 }}>
+                      You have already placed an order for this product.
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() => navigate('/orders')}
+                      sx={{
+                        bgcolor: 'info.main',
+                        '&:hover': {
+                          bgcolor: 'info.dark',
+                        }
+                      }}
+                    >
+                      View My Orders
+                    </Button>
+                  </Box>
+                )}
+                
+                <Button
+                  variant="outlined"
+                  size="large"
+                  fullWidth
+                  onClick={handleContactSeller}
+                  sx={{
+                    borderColor: 'primary.main',
+                    color: 'primary.main',
+                    '&:hover': {
+                      borderColor: 'primary.dark',
+                      bgcolor: 'primary.light',
+                    }
+                  }}
+                >
+                  Contact Seller
+                </Button>
+                <Button
+                  variant="text"
+                  size="large"
+                  fullWidth
+                  onClick={() => navigate('/products')}
+                >
+                  Back to Browse
+                </Button>
+              </Box>
         </Grid>
       </Grid>
 
@@ -489,17 +663,17 @@ const ProductDetail = () => {
           </Grid>
         </Grid>
 
-        {/* Shipping & Guarantee Info */}
+        {/* Marketplace Info */}
         <Box sx={{ mt: 3 }}>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={4}>
               <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.light', color: 'white' }}>
                 <ShippingIcon sx={{ fontSize: 40, mb: 1 }} />
                 <Typography variant="h6" gutterBottom>
-                  Free Shipping
+                  Direct Shipping
                 </Typography>
                 <Typography variant="body2">
-                  Free shipping on all orders over $50
+                  Seller arranges shipping via Lalamove, J&T Express, etc.
                 </Typography>
               </Paper>
             </Grid>
@@ -507,10 +681,10 @@ const ProductDetail = () => {
               <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'info.light', color: 'white' }}>
                 <SecurityIcon sx={{ fontSize: 40, mb: 1 }} />
                 <Typography variant="h6" gutterBottom>
-                  Secure Payment
+                  Secure Communication
                 </Typography>
                 <Typography variant="body2">
-                  100% secure payment processing
+                  Contact seller directly for payment and delivery
                 </Typography>
               </Paper>
             </Grid>
@@ -518,10 +692,10 @@ const ProductDetail = () => {
               <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.light', color: 'white' }}>
                 <CheckCircleIcon sx={{ fontSize: 40, mb: 1 }} />
                 <Typography variant="h6" gutterBottom>
-                  Money Back
+                  Verified Sellers
                 </Typography>
                 <Typography variant="body2">
-                  30-day money back guarantee
+                  All sellers are verified for your safety
                 </Typography>
               </Paper>
             </Grid>
@@ -531,16 +705,19 @@ const ProductDetail = () => {
 
       {/* Contact Seller Dialog */}
       <Dialog open={contactDialogOpen} onClose={() => setContactDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Contact {product.seller.name}</DialogTitle>
+        <DialogTitle>Contact {product.seller?.name || 'Seller'}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Send a message to the seller about "{product.title}"
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
+            💡 <strong>Tip:</strong> Ask about availability, shipping options, payment methods, and any questions you have about the product.
           </Typography>
           <TextField
             fullWidth
             multiline
             rows={4}
-            placeholder="Hi, I'm interested in this product. Could you tell me more about..."
+            placeholder="Hi! I'm interested in this product. Could you tell me more about the condition, shipping options, and payment methods? Also, is it still available?"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             sx={{ mt: 1 }}
@@ -555,10 +732,18 @@ const ProductDetail = () => {
           >
             Send Message
           </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
-  );
-};
+          </DialogActions>
+        </Dialog>
 
-export default ProductDetail;
+        {/* Payment Dialog */}
+        <PaymentDialog
+          open={paymentDialogOpen}
+          onClose={() => setPaymentDialogOpen(false)}
+          product={product}
+          onPaymentSuccess={handlePaymentSuccess}
+        />
+      </Container>
+    );
+  };
+
+  export default ProductDetail;

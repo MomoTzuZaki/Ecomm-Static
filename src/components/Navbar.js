@@ -14,12 +14,11 @@ import {
 import {
   Search as SearchIcon,
   AccountCircle,
-  ShoppingCart as ShoppingCartIcon,
+  Message as MessageIcon,
 } from '@mui/icons-material';
 import { styled, alpha } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useCart } from '../context/CartContext';
 import TechCycleLogo from '../assets/images/TechCycle.png';
 
 const Search = styled('div')(({ theme }) => ({
@@ -77,7 +76,6 @@ const StyledInputBase = styled(InputBase)(({ theme }) => ({
 const Navbar = () => {
   const navigate = useNavigate();
   const { user, logout, isAdmin, isSeller } = useAuth();
-  const { getCartItemCount } = useCart();
   const [anchorEl, setAnchorEl] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -148,7 +146,7 @@ const Navbar = () => {
 
         <IconButton
           color="inherit"
-          onClick={() => navigate('/cart')}
+          onClick={() => navigate('/messages')}
           sx={{ 
             ml: 2,
             color: 'white',
@@ -158,20 +156,9 @@ const Navbar = () => {
             },
             transition: 'all 0.2s ease'
           }}
+          title="Messages"
         >
-          <Badge 
-            badgeContent={getCartItemCount()} 
-            sx={{
-              '& .MuiBadge-badge': {
-                backgroundColor: 'white',
-                color: 'black',
-                fontWeight: 600,
-                fontSize: '0.75rem'
-              }
-            }}
-          >
-            <ShoppingCartIcon />
-          </Badge>
+          <MessageIcon />
         </IconButton>
 
         <Button 
@@ -254,6 +241,9 @@ const Navbar = () => {
               </MenuItem>
               <MenuItem onClick={() => { navigate('/orders'); handleClose(); }}>
                 My Orders
+              </MenuItem>
+              <MenuItem onClick={() => { navigate('/messages'); handleClose(); }}>
+                Messages
               </MenuItem>
               {user.role === 'seller' && (
                 <MenuItem onClick={() => { navigate('/seller-orders'); handleClose(); }}>

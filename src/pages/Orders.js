@@ -1,135 +1,121 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Typography,
   Box,
   Card,
   CardContent,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
   Button,
   Chip,
   Grid,
+  Alert,
   Tabs,
   Tab,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Divider,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Alert,
 } from '@mui/material';
 import {
-  ShoppingCart as CartIcon,
+  ShoppingCart as ShoppingCartIcon,
   LocalShipping as ShippingIcon,
-  CheckCircle as CheckIcon,
-  Schedule as ScheduleIcon,
-  Payment as PaymentIcon,
-  Star as StarIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
+import { transactionAPI } from '../services/api';
 
 const Orders = () => {
   const { user } = useAuth();
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [tabValue, setTabValue] = useState(0);
-  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState(null);
 
-  // Mock orders data
-  const orders = [
-    {
-      id: 'ORD-001',
-      date: '2024-01-15',
-      status: 'pending',
-      total: 799,
-      items: [
-        { name: 'iPhone 13 Pro', price: 799, quantity: 1 }
-      ],
-      seller: { name: 'Alice', rating: 4.9 },
-      deliveryMethod: 'Standard',
-      paymentMethod: 'GCash',
-      trackingNumber: 'LAL123456789',
-      courierService: 'Lalamove'
-    },
-    {
-      id: 'ORD-002',
-      date: '2024-01-14',
-      status: 'shipped',
-      total: 1099,
-      items: [
-        { name: 'Dell XPS 13', price: 1099, quantity: 1 }
-      ],
-      seller: { name: 'Bob', rating: 4.5 },
-      deliveryMethod: 'Express',
-      paymentMethod: 'PayMaya',
-      trackingNumber: 'JT987654321',
-      courierService: 'J&T Express'
-    },
-    {
-      id: 'ORD-003',
-      date: '2024-01-10',
-      status: 'delivered',
-      total: 279,
-      items: [
-        { name: 'Sony WH-1000XM5', price: 279, quantity: 1 }
-      ],
-      seller: { name: 'Carol', rating: 4.8 },
-      deliveryMethod: 'Standard',
-      paymentMethod: 'Bank Transfer',
-      trackingNumber: 'LAL555666777',
-      courierService: 'Lalamove'
+  useEffect(() => {
+    loadTransactions();
+  }, []);
+
+  const loadTransactions = async () => {
+    try {
+      setLoading(true);
+      const response = await transactionAPI.getMyTransactions('buyer');
+      setTransactions(response.transactions || []);
+    } catch (error) {
+      console.error('Error loading transactions:', error);
+      setTransactions([]);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'pending': return 'warning';
-      case 'shipped': return 'info';
-      case 'delivered': return 'success';
-      case 'cancelled': return 'error';
-      default: return 'default';
+      case 'pending_payment':
+        return 'warning';
+      case 'paid':
+        return 'info';
+      case 'admin_verification':
+        return 'primary';
+      case 'completed':
+        return 'success';
+      case 'cancelled':
+        return 'error';
+      default:
+        return 'default';
     }
   };
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'pending': return <ScheduleIcon />;
-      case 'shipped': return <ShippingIcon />;
-      case 'delivered': return <CheckIcon />;
-      default: return <CartIcon />;
+      case 'completed':
+        return <CheckCircleIcon />;
+      case 'cancelled':
+        return <CancelIcon />;
+      case 'admin_verification':
+        return <ShippingIcon />;
+      default:
+        return <ShoppingCartIcon />;
     }
   };
 
-  const handleConfirmDelivery = (order) => {
-    setSelectedOrder(order);
-    setConfirmDialogOpen(true);
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
-  const confirmDelivery = () => {
-    // In real app, this would update order status and release payment
-    console.log('Confirming delivery for order:', selectedOrder.id);
-    setConfirmDialogOpen(false);
-    setSelectedOrder(null);
-  };
-
-  const filteredOrders = orders.filter(order => {
+  const filteredTransactions = transactions.filter(transaction => {
     switch (tabValue) {
-      case 0: return true; // All
-      case 1: return order.status === 'pending';
-      case 2: return order.status === 'shipped';
-      case 3: return order.status === 'delivered';
-      default: return true;
+      case 0: // All
+        return true;
+      case 1: // Pending
+        return ['pending_payment', 'paid', 'admin_verification'].includes(transaction.status);
+      case 2: // Completed
+        return transaction.status === 'completed';
+      case 3: // Cancelled
+        return transaction.status === 'cancelled';
+      default:
+        return true;
     }
   });
 
-  if (!user) {
+  if (loading) {
     return (
-      <Container maxWidth="md" sx={{ py: 4 }}>
-        <Alert severity="warning">
-          Please log in to view your orders.
-        </Alert>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+          <Typography variant="h6">Loading your orders...</Typography>
+        </Box>
       </Container>
     );
   }
@@ -139,153 +125,122 @@ const Orders = () => {
       <Typography variant="h4" component="h1" gutterBottom>
         My Orders
       </Typography>
+      
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+        Track your purchases and transaction status
+      </Typography>
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
-          <Tab label="All Orders" />
-          <Tab label="Pending" />
-          <Tab label="Shipped" />
-          <Tab label="Delivered" />
-        </Tabs>
-      </Box>
+      {transactions.length === 0 ? (
+        <Card>
+          <CardContent sx={{ textAlign: 'center', py: 8 }}>
+            <ShoppingCartIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h6" color="text.secondary">
+              No orders yet
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Start shopping to see your orders here
+            </Typography>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Tabs */}
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+            <Tabs value={tabValue} onChange={handleTabChange}>
+              <Tab label={`All (${transactions.length})`} />
+              <Tab label={`Pending (${transactions.filter(t => ['pending_payment', 'paid', 'admin_verification'].includes(t.status)).length})`} />
+              <Tab label={`Completed (${transactions.filter(t => t.status === 'completed').length})`} />
+              <Tab label={`Cancelled (${transactions.filter(t => t.status === 'cancelled').length})`} />
+            </Tabs>
+          </Box>
 
-      <Grid container spacing={3}>
-        {filteredOrders.map((order) => (
-          <Grid item xs={12} key={order.id}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                  <Box>
-                    <Typography variant="h6">
-                      Order #{order.id}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {new Date(order.date).toLocaleDateString()}
-                    </Typography>
-                  </Box>
-                  <Chip
-                    icon={getStatusIcon(order.status)}
-                    label={order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                    color={getStatusColor(order.status)}
-                    variant="outlined"
-                  />
-                </Box>
+          {/* Transactions Table */}
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Order ID</TableCell>
+                  <TableCell>Product</TableCell>
+                  <TableCell>Seller</TableCell>
+                  <TableCell>Amount</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredTransactions.map((transaction) => (
+                  <TableRow key={transaction.id}>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                        {transaction.id.substring(0, 8)}...
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {transaction.product?.title}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {transaction.product?.category}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {transaction.seller?.firstName} {transaction.seller?.lastName}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        ${transaction.amount}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Fee: ${transaction.commission}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        icon={getStatusIcon(transaction.status)}
+                        label={transaction.status.replace('_', ' ').toUpperCase()}
+                        color={getStatusColor(transaction.status)}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="caption">
+                        {formatDate(transaction.createdAt)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => {
+                          // Navigate to transaction details
+                          console.log('View transaction:', transaction.id);
+                        }}
+                      >
+                        View Details
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
 
-                <Divider sx={{ my: 2 }} />
-
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
-                    <Typography variant="subtitle2" gutterBottom>
-                      Items Ordered:
-                    </Typography>
-                    <List dense>
-                      {order.items.map((item, index) => (
-                        <ListItem key={index} sx={{ px: 0 }}>
-                          <ListItemIcon>
-                            <CartIcon />
-                          </ListItemIcon>
-                          <ListItemText
-                            primary={item.name}
-                            secondary={`Qty: ${item.quantity} × $${item.price}`}
-                          />
-                        </ListItem>
-                      ))}
-                    </List>
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <Typography variant="subtitle2" gutterBottom>
-                      Order Details:
-                    </Typography>
-                    <List dense>
-                      <ListItem sx={{ px: 0 }}>
-                        <ListItemIcon>
-                          <PaymentIcon />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary="Total Amount"
-                          secondary={`$${order.total.toFixed(2)}`}
-                        />
-                      </ListItem>
-                      <ListItem sx={{ px: 0 }}>
-                        <ListItemIcon>
-                          <StarIcon />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary="Seller"
-                          secondary={`${order.seller.name} (${order.seller.rating}⭐)`}
-                        />
-                      </ListItem>
-                      <ListItem sx={{ px: 0 }}>
-                        <ListItemIcon>
-                          <ShippingIcon />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary="Delivery"
-                          secondary={`${order.deliveryMethod} via ${order.courierService}`}
-                        />
-                      </ListItem>
-                      {order.trackingNumber && (
-                        <ListItem sx={{ px: 0 }}>
-                          <ListItemText
-                            primary="Tracking Number"
-                            secondary={order.trackingNumber}
-                          />
-                        </ListItem>
-                      )}
-                    </List>
-                  </Grid>
-                </Grid>
-
-                {order.status === 'shipped' && (
-                  <Box sx={{ mt: 2, textAlign: 'right' }}>
-                    <Button
-                      variant="contained"
-                      color="success"
-                      onClick={() => handleConfirmDelivery(order)}
-                    >
-                      Confirm Delivery
-                    </Button>
-                  </Box>
-                )}
-
-                {order.status === 'delivered' && (
-                  <Alert severity="success" sx={{ mt: 2 }}>
-                    Order completed! Payment has been released to the seller.
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-
-      {filteredOrders.length === 0 && (
-        <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Typography variant="h6" color="text.secondary">
-            No orders found
-          </Typography>
-        </Box>
+          {/* Status Information */}
+          <Box sx={{ mt: 3 }}>
+            <Alert severity="info">
+              <Typography variant="body2">
+                <strong>Payment Status:</strong> Your payment is held securely by TechCycle until the transaction is verified by our admin team. 
+                The seller will receive their payment (minus 3% platform fee) after successful verification.
+              </Typography>
+            </Alert>
+          </Box>
+        </>
       )}
-
-      {/* Confirm Delivery Dialog */}
-      <Dialog open={confirmDialogOpen} onClose={() => setConfirmDialogOpen(false)}>
-        <DialogTitle>Confirm Delivery</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Have you received the items from order #{selectedOrder?.id}?
-          </Typography>
-          <Alert severity="warning" sx={{ mt: 2 }}>
-            Once confirmed, payment will be released to the seller and cannot be reversed.
-          </Alert>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" color="success" onClick={confirmDelivery}>
-            Confirm Delivery
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Container>
   );
 };

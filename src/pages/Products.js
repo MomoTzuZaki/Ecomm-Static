@@ -19,7 +19,6 @@ import {
 } from '@mui/material';
 import { Search, FilterList } from '@mui/icons-material';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductContext';
 
@@ -31,7 +30,6 @@ const Products = () => {
   const { getAllProducts } = useProducts();
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading] = useState(false);
-  const { addToCart, isInCart } = useCart();
   const { user } = useAuth();
   
   // Get products directly from context
@@ -82,6 +80,11 @@ const Products = () => {
       filtered = filtered.filter(product => product.price <= parseInt(priceRange.max));
     }
 
+    // Filter out sold and pending sale products
+    filtered = filtered.filter(product =>
+      product.status !== 'sold' && product.status !== 'pending_sale'
+    );
+
     setFilteredProducts(filtered);
     setCurrentPage(1);
   }, [searchQuery, categoryFilter, conditionFilter, priceRange, products]);
@@ -111,14 +114,6 @@ const Products = () => {
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
-  const handleAddToCart = (product) => {
-    if (!user) {
-      // Redirect to login if not authenticated
-      window.location.href = '/login';
-      return;
-    }
-    addToCart(product);
-  };
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -273,13 +268,17 @@ const Products = () => {
                 >
                   <CardMedia
                     component="img"
-                    height="120"
+                    height="200"
                     image={product.images && product.images.length > 0 ? product.images[0] : 'https://picsum.photos/300/200'}
                     alt={product.title}
                     sx={{ 
                       objectFit: 'cover',
                       width: '100%',
-                      aspectRatio: '4/3'
+                      aspectRatio: '4/3',
+                      minHeight: '200px'
+                    }}
+                    onError={(e) => {
+                      e.target.src = 'https://picsum.photos/300/200';
                     }}
                   />
                   <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 1.5, overflow: 'visible' }}>
@@ -309,12 +308,29 @@ const Products = () => {
                         ${product.originalPrice}
                       </Typography>
                     </Box>
-                    <Chip
-                      label={product.condition}
-                      size="small"
-                      color={product.condition === 'Excellent' ? 'success' : 'default'}
-                      sx={{ mb: 1 }}
-                    />
+                    <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                      <Chip
+                        label={product.condition}
+                        size="small"
+                        color={product.condition === 'Excellent' ? 'success' : 'default'}
+                      />
+                      {product.status === 'sold' && (
+                        <Chip
+                          label="SOLD"
+                          size="small"
+                          color="error"
+                          sx={{ fontWeight: 'bold' }}
+                        />
+                      )}
+                      {product.status === 'pending_sale' && (
+                        <Chip
+                          label="BEING ORDERED"
+                          size="small"
+                          color="warning"
+                          sx={{ fontWeight: 'bold' }}
+                        />
+                      )}
+                    </Box>
                     <Typography variant="caption" display="block" color="text.secondary" sx={{ mb: 1 }}>
                       {product.location} • {product.datePosted}
                     </Typography>
@@ -331,26 +347,6 @@ const Products = () => {
                             />
                           )}
                         </Box>
-                    <Button
-                      variant="contained"
-                      fullWidth
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddToCart(product);
-                      }}
-                      disabled={isInCart(product.id)}
-                      sx={{ 
-                        mt: 'auto',
-                        mb: 1,
-                        bgcolor: isInCart(product.id) ? 'success.main' : 'primary.main',
-                        '&:hover': {
-                          bgcolor: isInCart(product.id) ? 'success.dark' : 'primary.dark',
-                        }
-                      }}
-                    >
-                      {isInCart(product.id) ? 'In Cart' : 'Add to Cart'}
-                    </Button>
                   </CardContent>
                 </Card>
               </Grid>

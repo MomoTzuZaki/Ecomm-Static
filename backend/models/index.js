@@ -12,6 +12,7 @@ const Report = require('./Report');
 const Review = require('./Review');
 const SellerVerification = require('./SellerVerification');
 const Transaction = require('./Transaction');
+const Payment = require('./Payment');
 const Verification = require('./Verification');
 
 // Define associations
@@ -59,8 +60,10 @@ Message.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
 Transaction.belongsTo(User, { foreignKey: 'buyerId', as: 'buyer' });
 Transaction.belongsTo(User, { foreignKey: 'sellerId', as: 'seller' });
 Transaction.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+Transaction.belongsTo(User, { foreignKey: 'verifiedBy', as: 'verifier' });
 Transaction.hasMany(PlatformEarning, { foreignKey: 'transactionId', as: 'earnings' });
 Transaction.hasMany(Review, { foreignKey: 'transactionId', as: 'reviews' });
+Transaction.hasMany(Payment, { foreignKey: 'transactionId', as: 'payments' });
 
 // Review associations
 Review.belongsTo(User, { foreignKey: 'buyerId', as: 'buyer' });
@@ -84,6 +87,9 @@ Verification.belongsTo(User, { foreignKey: 'reviewedBy', as: 'reviewer' });
 // PlatformEarning associations
 PlatformEarning.belongsTo(Transaction, { foreignKey: 'transactionId', as: 'transaction' });
 
+// Payment associations
+Payment.belongsTo(Transaction, { foreignKey: 'transactionId', as: 'transaction' });
+
 // Export all models and sequelize instance
 module.exports = {
   sequelize,
@@ -98,5 +104,6 @@ module.exports = {
   Review,
   SellerVerification,
   Transaction,
+  Payment,
   Verification
 };

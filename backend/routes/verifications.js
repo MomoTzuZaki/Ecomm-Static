@@ -1,5 +1,5 @@
 const express = require('express');
-const { Verification, User } = require('../models');
+const { SellerVerification, User } = require('../models');
 const { auth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -19,7 +19,7 @@ router.post('/', auth, async (req, res) => {
     } = req.body;
 
     // Check if user already has a pending verification
-    const existingVerification = await Verification.findOne({
+    const existingVerification = await SellerVerification.findOne({
       where: {
         userId: req.userId,
         status: 'pending'
@@ -36,31 +36,26 @@ router.post('/', auth, async (req, res) => {
     const verificationId = `VER-${Date.now()}`;
 
     // Create verification request
-    const verification = await Verification.create({
+    const verification = await SellerVerification.create({
       userId: req.userId,
-      userEmail: req.user.email,
-      fullName,
-      address,
-      phoneNumber,
-      idType,
-      idNumber,
+      validIdType: idType,
       idImage,
       selfieImage,
+      address,
       proofOfOwnership,
-      verificationId,
+      status: 'pending'
     });
 
     // Update user's verification status
     await User.update({
       verificationStatus: 'pending',
-      verificationId: verificationId,
     }, {
       where: { id: req.userId }
     });
 
     res.status(201).json({
       message: 'Verification request submitted successfully',
-      verificationId: verificationId,
+      verification: verification,
     });
   } catch (error) {
     console.error('Verification submission error:', error);
@@ -71,7 +66,7 @@ router.post('/', auth, async (req, res) => {
 // Get user's verification status
 router.get('/my-status', auth, async (req, res) => {
   try {
-    const verification = await Verification.findOne({
+    const verification = await SellerVerification.findOne({
       where: { userId: req.userId },
       order: [['createdAt', 'DESC']]
     });
@@ -94,12 +89,12 @@ router.get('/all', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const verifications = await Verification.findAll({
+    const verifications = await SellerVerification.findAll({
       include: [
         {
           model: User,
           as: 'user',
-          attributes: ['id', 'username', 'email']
+          attributes: ['id', 'username', 'email', 'firstName', 'lastName']
         },
         {
           model: User,
@@ -127,7 +122,7 @@ router.put('/:id/status', auth, async (req, res) => {
     const { status, rejectionReason } = req.body;
     const verificationId = req.params.id;
 
-    const verification = await Verification.findByPk(verificationId);
+    const verification = await SellerVerification.findByPk(verificationId);
     if (!verification) {
       return res.status(404).json({ message: 'Verification not found' });
     }
@@ -137,7 +132,7 @@ router.put('/:id/status', auth, async (req, res) => {
       status: status,
       reviewedAt: new Date(),
       reviewedBy: req.userId,
-      rejectionReason: rejectionReason || null
+      adminNotes: rejectionReason || null
     });
 
     // Update user's role and verification status

@@ -25,6 +25,7 @@ import AdminTransactions from './pages/AdminTransactions';
 import EditProduct from './pages/EditProduct';
 import SellerVerification from './pages/SellerVerification';
 import AdminVerification from './pages/AdminVerification';
+import Messages from './pages/Messages';
 import './App.css';
 
 // Development helper available at ./utils/clearLocalStorage if needed
@@ -179,6 +180,7 @@ function App() {
               <Route path="/order-confirmation" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
               <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
               <Route path="/seller-orders" element={<ProtectedRoute><SellerOrders /></ProtectedRoute>} />
+              <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
               <Route path="/verify-seller" element={<SellerVerification />} />
             </Routes>
             </div>

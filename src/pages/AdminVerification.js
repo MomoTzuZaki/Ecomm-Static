@@ -39,6 +39,7 @@ const AdminVerification = () => {
   const [actionDialogOpen, setActionDialogOpen] = useState(false);
   const [actionType, setActionType] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
+  const [approvalNotes, setApprovalNotes] = useState('');
   const [tabValue, setTabValue] = useState(0);
 
   useEffect(() => {
@@ -48,9 +49,11 @@ const AdminVerification = () => {
   const loadVerifications = async () => {
     try {
       const response = await verificationAPI.getAllVerifications();
-      setVerifications(response.verifications);
+      setVerifications(response.verifications || []);
     } catch (error) {
       console.error('Error loading verifications:', error);
+      // Set empty array on error to prevent crashes
+      setVerifications([]);
     }
   };
 
@@ -76,9 +79,9 @@ const AdminVerification = () => {
 
     try {
       await verificationAPI.updateVerificationStatus(
-        selectedVerification._id,
+        selectedVerification.id,
         actionType === 'approve' ? 'approved' : 'rejected',
-        actionType === 'reject' ? rejectionReason : null
+        actionType === 'reject' ? rejectionReason : approvalNotes
       );
 
       // Reload verifications to get updated data
@@ -87,6 +90,7 @@ const AdminVerification = () => {
       setActionDialogOpen(false);
       setSelectedVerification(null);
       setRejectionReason('');
+      setApprovalNotes('');
     } catch (error) {
       console.error('Error updating verification status:', error);
       alert(error.message || 'Failed to update verification status');
@@ -110,7 +114,7 @@ const AdminVerification = () => {
   });
 
   const renderVerificationCard = (verification) => (
-    <Card key={verification.userId} sx={{ mb: 2 }}>
+    <Card key={verification.id} sx={{ mb: 2 }}>
       <CardContent>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={3}>
@@ -126,11 +130,11 @@ const AdminVerification = () => {
           </Grid>
           <Grid item xs={12} md={6}>
             <Typography variant="h6" gutterBottom>
-              {verification.fullName}
+              {verification.user ? `${verification.user.firstName} ${verification.user.lastName}` : 'Unknown User'}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <PersonIcon fontSize="small" />
-              <Typography variant="body2">{verification.phoneNumber}</Typography>
+              <Typography variant="body2">{verification.user?.email || 'No email'}</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <HomeIcon fontSize="small" />
@@ -139,11 +143,11 @@ const AdminVerification = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <SecurityIcon fontSize="small" />
               <Typography variant="body2">
-                {verification.idType}: {verification.idNumber}
+                {verification.validIdType}
               </Typography>
             </Box>
             <Typography variant="caption" color="text.secondary">
-              Submitted: {new Date(verification.submittedAt).toLocaleDateString()}
+              Submitted: {new Date(verification.createdAt).toLocaleDateString()}
             </Typography>
           </Grid>
           <Grid item xs={12} md={3}>
@@ -182,6 +186,28 @@ const AdminVerification = () => {
                     Reject
                   </Button>
                 </>
+              )}
+              {verification.status === 'approved' && (
+                <Button
+                  variant="outlined"
+                  color="error"
+                  size="small"
+                  startIcon={<RejectIcon />}
+                  onClick={() => handleReject(verification)}
+                >
+                  Reject
+                </Button>
+              )}
+              {verification.status === 'rejected' && (
+                <Button
+                  variant="outlined"
+                  color="success"
+                  size="small"
+                  startIcon={<ApproveIcon />}
+                  onClick={() => handleApprove(verification)}
+                >
+                  Approve
+                </Button>
               )}
             </Box>
           </Grid>
@@ -239,10 +265,10 @@ const AdminVerification = () => {
                     Personal Information
                   </Typography>
                   <Typography variant="body2" gutterBottom>
-                    <strong>Name:</strong> {selectedVerification.fullName}
+                    <strong>Name:</strong> {selectedVerification.user ? `${selectedVerification.user.firstName} ${selectedVerification.user.lastName}` : 'Unknown User'}
                   </Typography>
                   <Typography variant="body2" gutterBottom>
-                    <strong>Phone:</strong> {selectedVerification.phoneNumber}
+                    <strong>Email:</strong> {selectedVerification.user?.email || 'No email'}
                   </Typography>
                   <Typography variant="body2" gutterBottom>
                     <strong>Address:</strong> {selectedVerification.address}
@@ -252,11 +278,26 @@ const AdminVerification = () => {
                     ID Information
                   </Typography>
                   <Typography variant="body2" gutterBottom>
-                    <strong>ID Type:</strong> {selectedVerification.idType}
+                    <strong>ID Type:</strong> {selectedVerification.validIdType}
                   </Typography>
                   <Typography variant="body2" gutterBottom>
-                    <strong>ID Number:</strong> {selectedVerification.idNumber}
+                    <strong>Status:</strong> {selectedVerification.status}
                   </Typography>
+                  {selectedVerification.reviewedAt && (
+                    <Typography variant="body2" gutterBottom>
+                      <strong>Reviewed:</strong> {new Date(selectedVerification.reviewedAt).toLocaleDateString()}
+                    </Typography>
+                  )}
+                  {selectedVerification.reviewer && (
+                    <Typography variant="body2" gutterBottom>
+                      <strong>Reviewed By:</strong> {selectedVerification.reviewer.username}
+                    </Typography>
+                  )}
+                  {selectedVerification.adminNotes && (
+                    <Typography variant="body2" gutterBottom>
+                      <strong>Admin Notes:</strong> {selectedVerification.adminNotes}
+                    </Typography>
+                  )}
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="h6" gutterBottom>
@@ -326,10 +367,22 @@ const AdminVerification = () => {
         </DialogTitle>
         <DialogContent>
           {actionType === 'approve' ? (
-            <Alert severity="success" sx={{ mb: 2 }}>
-              Are you sure you want to approve this seller verification? 
-              This will grant the user seller privileges and a verified badge.
-            </Alert>
+            <Box>
+              <Alert severity="success" sx={{ mb: 2 }}>
+                Are you sure you want to approve this seller verification? 
+                This will grant the user seller privileges and a verified badge.
+              </Alert>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="Approval Notes (Optional)"
+                value={approvalNotes}
+                onChange={(e) => setApprovalNotes(e.target.value)}
+                placeholder="Add any notes about this approval..."
+                sx={{ mt: 2 }}
+              />
+            </Box>
           ) : (
             <Box>
               <Alert severity="error" sx={{ mb: 2 }}>
@@ -344,6 +397,7 @@ const AdminVerification = () => {
                 onChange={(e) => setRejectionReason(e.target.value)}
                 placeholder="Please provide a reason for rejection..."
                 sx={{ mt: 2 }}
+                required
               />
             </Box>
           )}
@@ -365,4 +419,5 @@ const AdminVerification = () => {
 };
 
 export default AdminVerification;
+
 

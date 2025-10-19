@@ -41,24 +41,23 @@ const Transaction = sequelize.define('Transaction', {
       min: 0
     }
   },
-  transactionFee: {
+  commission: {
     type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
     defaultValue: 0,
-    field: 'transaction_fee',
     validate: {
       min: 0
     }
   },
-  netAmount: {
+  sellerAmount: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false,
-    field: 'net_amount',
     validate: {
       min: 0
     }
   },
   status: {
-    type: DataTypes.ENUM('pending_payment', 'paid', 'shipped', 'delivered', 'completed', 'cancelled', 'refunded'),
+    type: DataTypes.ENUM('pending_payment', 'paid', 'admin_verification', 'completed', 'cancelled', 'refunded'),
     defaultValue: 'pending_payment'
   },
   paymentMethod: {
@@ -71,53 +70,39 @@ const Transaction = sequelize.define('Transaction', {
     allowNull: true,
     field: 'payment_reference'
   },
-  paymentProof: {
-    type: DataTypes.STRING(255),
+  adminNotes: {
+    type: DataTypes.TEXT,
     allowNull: true,
-    field: 'payment_proof'
+    field: 'admin_notes'
   },
-  paymentVerified: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false,
-    field: 'payment_verified'
-  },
-  paymentVerifiedAt: {
+  verifiedAt: {
     type: DataTypes.DATE,
     allowNull: true,
-    field: 'payment_verified_at'
+    field: 'verified_at'
+  },
+  verifiedBy: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    field: 'verified_by',
+    references: {
+      model: 'users',
+      key: 'id'
+    }
+  },
+  completedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'completed_at'
   },
   shippingAddress: {
-    type: DataTypes.TEXT,
-    allowNull: false,
-    field: 'shipping_address'
-  },
-  shippingMethod: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.JSONB,
     allowNull: true,
-    field: 'shipping_method'
-  },
-  shippingCost: {
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0,
-    field: 'shipping_cost',
-    validate: {
-      min: 0
-    }
+    field: 'shipping_address'
   },
   trackingNumber: {
     type: DataTypes.STRING(100),
     allowNull: true,
     field: 'tracking_number'
-  },
-  shippedAt: {
-    type: DataTypes.DATE,
-    allowNull: true,
-    field: 'shipped_at'
-  },
-  deliveredAt: {
-    type: DataTypes.DATE,
-    allowNull: true,
-    field: 'delivered_at'
   }
 }, {
   tableName: 'transactions',
@@ -132,6 +117,9 @@ const Transaction = sequelize.define('Transaction', {
       fields: ['seller_id']
     },
     {
+      fields: ['product_id']
+    },
+    {
       fields: ['status']
     },
     {
@@ -141,22 +129,22 @@ const Transaction = sequelize.define('Transaction', {
 });
 
 // Instance methods
-Transaction.prototype.calculateTransactionFee = function(percentage = 0.05) {
-  this.transactionFee = this.amount * percentage;
-  this.netAmount = this.amount - this.transactionFee;
+Transaction.prototype.calculateCommission = function(amount, commissionRate = 0.03) {
+  this.commission = Math.round(amount * commissionRate * 100) / 100;
+  this.sellerAmount = Math.round((amount - this.commission) * 100) / 100;
   return this;
 };
 
-Transaction.prototype.isCompleted = function() {
-  return this.status === 'completed';
-};
-
-Transaction.prototype.isPaid = function() {
-  return this.status === 'paid' || this.status === 'shipped' || this.status === 'delivered' || this.status === 'completed';
+Transaction.prototype.isPending = function() {
+  return ['pending_payment', 'paid', 'admin_verification'].includes(this.status);
 };
 
 Transaction.prototype.canBeCancelled = function() {
-  return this.status === 'pending_payment' || this.status === 'paid';
+  return ['pending_payment', 'paid'].includes(this.status);
+};
+
+Transaction.prototype.canBeRefunded = function() {
+  return ['completed'].includes(this.status);
 };
 
 module.exports = Transaction;

@@ -108,12 +108,77 @@ export const authAPI = {
   },
 };
 
-// Stubs to avoid accidental network usage. You can extend these later if needed.
+// Database API for verification management
 export const verificationAPI = {
-  submitVerification: async () => { throw new Error('Not available in UI-only mode'); },
-  getMyVerificationStatus: async () => { throw new Error('Not available in UI-only mode'); },
-  getAllVerifications: async () => { throw new Error('Not available in UI-only mode'); },
-  updateVerificationStatus: async () => { throw new Error('Not available in UI-only mode'); },
+  submitVerification: async (verificationData) => {
+    const token = localStorage.getItem('techCycleToken');
+    const response = await fetch('/api/verifications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(verificationData)
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to submit verification');
+    }
+    
+    return await response.json();
+  },
+
+  getMyVerificationStatus: async () => {
+    const token = localStorage.getItem('techCycleToken');
+    const response = await fetch('/api/verifications/my-status', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to get verification status');
+    }
+    
+    return await response.json();
+  },
+
+  getAllVerifications: async () => {
+    const token = localStorage.getItem('techCycleToken');
+    const response = await fetch('/api/verifications/all', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to get verifications');
+    }
+    
+    return await response.json();
+  },
+
+  updateVerificationStatus: async (verificationId, status, rejectionReason = null) => {
+    const token = localStorage.getItem('techCycleToken');
+    const response = await fetch(`/api/verifications/${verificationId}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ status, rejectionReason })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to update verification status');
+    }
+    
+    return await response.json();
+  }
 };
 
 // Helper generates plausible mock products procedurally for UI-only mode
@@ -185,6 +250,8 @@ export const productsAPI = {
   getAllProducts: async () => {
     // Seed demo products if not present
     const key = 'techCycleProducts';
+    // Clear existing data to force reload with new image URLs
+    localStorage.removeItem(key);
     const raw = localStorage.getItem(key);
     if (!raw) {
       const demo = [
@@ -205,9 +272,9 @@ export const productsAPI = {
           warranty: 'No warranty (used)',
           accessories: 'Original box, cable',
           images: [
-            'https://source.unsplash.com/featured/600x400?iphone-13-pro,apple,smartphone',
-            'https://source.unsplash.com/featured/600x400?iphone-13-pro,back,apple',
-            'https://source.unsplash.com/featured/600x400?iphone-13-pro,macro,apple'
+            'https://picsum.photos/600/400?random=1',
+            'https://picsum.photos/600/400?random=2',
+            'https://picsum.photos/600/400?random=3'
           ],
           location: 'San Francisco, CA',
           datePosted: 'Today',
@@ -237,9 +304,9 @@ export const productsAPI = {
           warranty: '3 months store warranty',
           accessories: 'USB-C charger',
           images: [
-            'https://source.unsplash.com/featured/600x400?dell-xps-13,laptop',
-            'https://source.unsplash.com/featured/600x400?dell-xps,keyboard',
-            'https://source.unsplash.com/featured/600x400?ultrabook,dell'
+            'https://picsum.photos/600/400?random=4',
+            'https://picsum.photos/600/400?random=5',
+            'https://picsum.photos/600/400?random=6'
           ],
           location: 'Austin, TX',
           datePosted: 'Yesterday',
@@ -266,9 +333,9 @@ export const productsAPI = {
           warranty: 'Manufacturer warranty until 2026-02',
           accessories: 'Case, USB-C cable, adapter',
           images: [
-            'https://source.unsplash.com/featured/600x400?sony-wh-1000xm5,headphones',
-            'https://source.unsplash.com/featured/600x400?sony-headphones,black',
-            'https://source.unsplash.com/featured/600x400?headphone,case'
+            'https://picsum.photos/600/400?random=7',
+            'https://picsum.photos/600/400?random=8',
+            'https://picsum.photos/600/400?random=9'
           ],
           location: 'Seattle, WA',
           datePosted: '2 days ago',
@@ -293,9 +360,9 @@ export const productsAPI = {
           weight: '387g',
           accessories: '15–45mm kit lens, strap, battery, charger',
           images: [
-            'https://source.unsplash.com/featured/600x400?canon-eos-m50,camera',
-            'https://source.unsplash.com/featured/600x400?mirrorless,canon',
-            'https://source.unsplash.com/featured/600x400?camera,kit-lens'
+            'https://picsum.photos/600/400?random=10',
+            'https://picsum.photos/600/400?random=11',
+            'https://picsum.photos/600/400?random=12'
           ],
           location: 'Denver, CO',
           datePosted: '3 days ago',
@@ -320,8 +387,8 @@ export const productsAPI = {
           color: 'Mystic Black',
           screenSize: '11 inches',
           images: [
-            'https://source.unsplash.com/featured/600x400?galaxy-tab-s7,samsung,tablet',
-            'https://source.unsplash.com/featured/600x400?android-tablet,keyboard-cover'
+            'https://picsum.photos/600/400?random=13',
+            'https://picsum.photos/600/400?random=14'
           ],
           location: 'Chicago, IL',
           datePosted: 'This week',
@@ -344,8 +411,8 @@ export const productsAPI = {
           brand: 'Apple',
           color: 'White',
           images: [
-            'https://source.unsplash.com/featured/600x400?airpods-pro-2,earbuds',
-            'https://source.unsplash.com/featured/600x400?airpods,charging-case'
+            'https://picsum.photos/600/400?random=15',
+            'https://picsum.photos/600/400?random=16'
           ],
           location: 'New York, NY',
           datePosted: 'Today',
@@ -471,10 +538,299 @@ export const cartAPI = {
   },
 };
 
+// Mock transaction data storage
+const TRANSACTIONS_KEY = 'techCycleTransactions';
+
+const readTransactions = () => {
+  const raw = localStorage.getItem(TRANSACTIONS_KEY);
+  try {
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+const writeTransactions = (transactions) => {
+  localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(transactions));
+};
+
+export const transactionAPI = {
+  createTransaction: async (productId, shippingAddress, paymentMethod) => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const transactions = readTransactions();
+    const user = JSON.parse(localStorage.getItem('techCycleUser') || '{}');
+    
+    // Check if current user has already ordered this product
+    const userExistingTransaction = transactions.find(t => 
+      t.productId === productId && 
+      t.buyerId === (user.id || 'user-1') &&
+      ['pending_payment', 'paid', 'admin_verification', 'completed'].includes(t.status)
+    );
+    
+    if (userExistingTransaction) {
+      console.log('User already has an order for this product:', productId);
+      throw new Error('You have already placed an order for this product. You can only order each item once.');
+    }
+    
+    // Check if product is already being purchased by another user
+    const otherUserTransaction = transactions.find(t => 
+      t.productId === productId && 
+      t.buyerId !== (user.id || 'user-1') &&
+      ['pending_payment', 'paid', 'admin_verification'].includes(t.status)
+    );
+    
+    if (otherUserTransaction) {
+      console.log('Product already being ordered by another user:', productId);
+      throw new Error('This product is already being ordered by another buyer. Please check back later or browse other products.');
+    }
+    
+    // Get product details
+    const products = JSON.parse(localStorage.getItem('techCycleProducts') || '[]');
+    const product = products.find(p => p.id === productId);
+    
+    if (!product) {
+      throw new Error('Product not found');
+    }
+    
+    // Check if product is available for purchase
+    if (product.status === 'sold') {
+      console.log('Product already sold:', productId, product.status);
+      throw new Error('This product has already been sold.');
+    }
+    
+    if (product.status === 'pending_sale') {
+      console.log('Product already pending sale:', productId, product.status);
+      throw new Error('This product is already being ordered by another buyer. Please check back later or browse other products.');
+    }
+    
+    const transaction = {
+      id: `txn-${Date.now()}`,
+      buyerId: user.id || 'user-1',
+      sellerId: product.seller?.id || 'seller-1',
+      productId: productId,
+      amount: product.price,
+      commission: Math.round(product.price * 0.03 * 100) / 100,
+      sellerAmount: Math.round((product.price - (product.price * 0.03)) * 100) / 100,
+      status: 'pending_payment',
+      paymentMethod: paymentMethod,
+      shippingAddress: shippingAddress,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      buyer: {
+        id: user.id || 'user-1',
+        username: user.username || 'Current User',
+        email: user.email || 'user@example.com',
+        firstName: user.firstName || 'User',
+        lastName: user.lastName || 'Name'
+      },
+      seller: product.seller || {
+        id: 'seller-1',
+        username: 'Product Seller',
+        email: 'seller@example.com',
+        firstName: 'Seller',
+        lastName: 'Name'
+      },
+      product: {
+        id: product.id,
+        title: product.title,
+        price: product.price,
+        category: product.category
+      }
+    };
+    
+    transactions.push(transaction);
+    writeTransactions(transactions);
+    
+    // Update product status to pending_sale
+    const productIndex = products.findIndex(p => p.id === productId);
+    if (productIndex !== -1) {
+      products[productIndex].status = 'pending_sale';
+      localStorage.setItem('techCycleProducts', JSON.stringify(products));
+    }
+    
+    return {
+      message: 'Transaction created successfully',
+      transaction: {
+        id: transaction.id,
+        amount: transaction.amount,
+        commission: transaction.commission,
+        sellerAmount: transaction.sellerAmount,
+        status: transaction.status
+      }
+    };
+  },
+
+  processPayment: async (transactionId, paymentMethod, paymentReference, paymentDetails, receiptFile = null) => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const transactions = readTransactions();
+    const transaction = transactions.find(t => t.id === transactionId);
+    
+    if (!transaction) {
+      throw new Error('Transaction not found');
+    }
+    
+    // Determine payment status based on method
+    let paymentStatus = 'completed';
+    let transactionStatus = 'admin_verification';
+    
+    // For QR code payments, status is pending receipt verification
+    if (['gcash', 'bank_transfer', 'paymaya'].includes(paymentMethod)) {
+      paymentStatus = 'pending_receipt_verification';
+      transactionStatus = 'pending_receipt_verification';
+    }
+    
+    // Update transaction status
+    transaction.status = transactionStatus;
+    transaction.paymentReference = paymentReference;
+    transaction.paymentDetails = paymentDetails;
+    transaction.receiptFile = receiptFile;
+    transaction.updatedAt = new Date().toISOString();
+    
+    // Add payment record
+    transaction.payments = [{
+      id: `pay-${Date.now()}`,
+      transactionId: transactionId,
+      amount: transaction.amount,
+      paymentMethod: paymentMethod,
+      paymentReference: paymentReference,
+      status: paymentStatus,
+      receiptFile: receiptFile,
+      processedAt: new Date().toISOString()
+    }];
+    
+    writeTransactions(transactions);
+    
+    return {
+      message: 'Payment initiated successfully',
+      payment: {
+        id: transaction.payments[0].id,
+        amount: transaction.amount,
+        status: paymentStatus
+      }
+    };
+  },
+
+  getMyTransactions: async (type = null) => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const transactions = readTransactions();
+    const user = JSON.parse(localStorage.getItem('techCycleUser') || '{}');
+    
+    let filteredTransactions = transactions;
+    
+    if (type === 'buyer') {
+      filteredTransactions = transactions.filter(t => t.buyerId === user.id);
+    } else if (type === 'seller') {
+      filteredTransactions = transactions.filter(t => t.sellerId === user.id);
+    }
+    
+    return { transactions: filteredTransactions };
+  },
+
+  getTransactionDetails: async (transactionId) => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const transactions = readTransactions();
+    const transaction = transactions.find(t => t.id === transactionId);
+    
+    if (!transaction) {
+      throw new Error('Transaction not found');
+    }
+    
+    return { transaction };
+  },
+
+  cancelTransaction: async (transactionId, reason) => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const transactions = readTransactions();
+    const transaction = transactions.find(t => t.id === transactionId);
+    
+    if (!transaction) {
+      throw new Error('Transaction not found');
+    }
+    
+    transaction.status = 'cancelled';
+    transaction.adminNotes = reason;
+    transaction.updatedAt = new Date().toISOString();
+    
+    writeTransactions(transactions);
+    
+    // Make product available again
+    const products = JSON.parse(localStorage.getItem('techCycleProducts') || '[]');
+    const productIndex = products.findIndex(p => p.id === transaction.productId);
+    if (productIndex !== -1) {
+      products[productIndex].status = 'approved'; // Reset to approved status
+      localStorage.setItem('techCycleProducts', JSON.stringify(products));
+    }
+    
+    return {
+      message: 'Transaction cancelled successfully',
+      transaction
+    };
+  },
+
+  // Admin functions
+  getPendingVerifications: async () => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const transactions = readTransactions();
+    const pendingTransactions = transactions.filter(t => 
+      t.status === 'admin_verification' || t.status === 'pending_receipt_verification'
+    );
+    
+    return { transactions: pendingTransactions };
+  },
+
+  verifyTransaction: async (transactionId, adminNotes, trackingNumber) => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const transactions = readTransactions();
+    const transaction = transactions.find(t => t.id === transactionId);
+    
+    if (!transaction) {
+      throw new Error('Transaction not found');
+    }
+    
+    transaction.status = 'completed';
+    transaction.adminNotes = adminNotes;
+    transaction.trackingNumber = trackingNumber;
+    transaction.verifiedAt = new Date().toISOString();
+    transaction.verifiedBy = 'admin-1';
+    transaction.completedAt = new Date().toISOString();
+    transaction.updatedAt = new Date().toISOString();
+    
+    writeTransactions(transactions);
+    
+    // Update product status to sold
+    const products = JSON.parse(localStorage.getItem('techCycleProducts') || '[]');
+    const productIndex = products.findIndex(p => p.id === transaction.productId);
+    if (productIndex !== -1) {
+      products[productIndex].status = 'sold';
+      localStorage.setItem('techCycleProducts', JSON.stringify(products));
+    }
+    
+    return {
+      message: 'Transaction verified and completed successfully',
+      transaction
+    };
+  }
+};
+
 export default {
   authAPI,
   verificationAPI,
   productsAPI,
   usersAPI,
   cartAPI,
+  transactionAPI,
 };

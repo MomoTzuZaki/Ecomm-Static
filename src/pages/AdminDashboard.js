@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Typography,
@@ -31,9 +31,11 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Security as SecurityIcon,
+  Payment as PaymentIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useProducts } from '../context/ProductContext';
+import { verificationAPI } from '../services/api';
 
 // Mock data - replace with actual API calls
 const mockPendingProducts = [
@@ -68,9 +70,38 @@ const AdminDashboard = () => {
   const [tabValue, setTabValue] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [verifications, setVerifications] = useState([]);
+  const [verificationStats, setVerificationStats] = useState({
+    pending: 0,
+    approved: 0,
+    rejected: 0
+  });
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
+  };
+
+  // Load verification data
+  useEffect(() => {
+    loadVerifications();
+  }, []);
+
+  const loadVerifications = async () => {
+    try {
+      const response = await verificationAPI.getAllVerifications();
+      const verifications = response.verifications || [];
+      setVerifications(verifications);
+      
+      // Calculate stats
+      const stats = verifications.reduce((acc, verification) => {
+        acc[verification.status] = (acc[verification.status] || 0) + 1;
+        return acc;
+      }, { pending: 0, approved: 0, rejected: 0 });
+      
+      setVerificationStats(stats);
+    } catch (error) {
+      console.error('Error loading verifications:', error);
+    }
   };
 
   const handleApproveProduct = (productId) => {
@@ -180,6 +211,7 @@ const AdminDashboard = () => {
           <Tab label="Pending Reviews" />
           <Tab label="All Products" />
           <Tab label="Seller Verification" />
+          <Tab label="Transactions" />
           <Tab label="Analytics" />
         </Tabs>
       </Box>
@@ -327,18 +359,145 @@ const AdminDashboard = () => {
           <Alert severity="info" sx={{ mb: 3 }}>
             Manage seller verification requests to maintain platform quality and trust.
           </Alert>
-          <Button
-            variant="contained"
-            startIcon={<SecurityIcon />}
-            onClick={() => navigate('/admin/verification')}
-          >
-            Manage Seller Verifications
-          </Button>
+          
+          {/* Quick Stats */}
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid item xs={4}>
+              <Card>
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <Typography color="warning.main" variant="h4">
+                    {verificationStats.pending}
+                  </Typography>
+                  <Typography variant="body2">Pending</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={4}>
+              <Card>
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <Typography color="success.main" variant="h4">
+                    {verificationStats.approved}
+                  </Typography>
+                  <Typography variant="body2">Approved</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={4}>
+              <Card>
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <Typography color="error.main" variant="h4">
+                    {verificationStats.rejected}
+                  </Typography>
+                  <Typography variant="body2">Rejected</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+
+          {/* Recent Verifications */}
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Recent Verification Requests
+          </Typography>
+          
+          {verifications.length === 0 ? (
+            <Alert severity="info">
+              No verification requests found.
+            </Alert>
+          ) : (
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>User</TableCell>
+                    <TableCell>Email</TableCell>
+                    <TableCell>ID Type</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Submitted</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {verifications.slice(0, 5).map((verification) => (
+                    <TableRow key={verification.id}>
+                      <TableCell>
+                        {verification.user ? 
+                          `${verification.user.firstName} ${verification.user.lastName}` : 
+                          'Unknown User'
+                        }
+                      </TableCell>
+                      <TableCell>{verification.user?.email || 'No email'}</TableCell>
+                      <TableCell>{verification.validIdType}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={verification.status.toUpperCase()}
+                          color={getStatusColor(verification.status)}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {new Date(verification.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <IconButton 
+                          size="small"
+                          onClick={() => navigate('/admin/verification')}
+                          title="View Details"
+                        >
+                          <ViewIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+
+          <Box sx={{ mt: 3, textAlign: 'center' }}>
+            <Button
+              variant="contained"
+              startIcon={<SecurityIcon />}
+              onClick={() => navigate('/admin/verification')}
+              size="large"
+            >
+              Manage All Seller Verifications
+            </Button>
+          </Box>
+        </Box>
+      )}
+
+      {/* Transactions Tab */}
+      {tabValue === 3 && (
+        <Box>
+          <Typography variant="h6" sx={{ mb: 3 }}>
+            Transaction Management
+          </Typography>
+          <Alert severity="info" sx={{ mb: 3 }}>
+            Manage pending transactions and verify payments. TechCycle holds payments in escrow until verification is complete.
+          </Alert>
+
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <PaymentIcon sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
+            <Typography variant="h6" gutterBottom>
+              Transaction Management
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Review and verify pending transactions to release payments to sellers.
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<PaymentIcon />}
+              onClick={() => navigate('/admin/transactions')}
+              size="large"
+            >
+              Manage Transactions
+            </Button>
+          </Box>
         </Box>
       )}
 
       {/* Analytics Tab */}
-      {tabValue === 3 && (
+      {tabValue === 4 && (
         <Box>
           <Typography variant="h6" sx={{ mb: 3 }}>Platform Analytics</Typography>
           
