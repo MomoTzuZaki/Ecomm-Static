@@ -181,7 +181,7 @@ function App() {
               <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
               <Route path="/seller-orders" element={<ProtectedRoute><SellerOrders /></ProtectedRoute>} />
               <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
-              <Route path="/verify-seller" element={<SellerVerification />} />
+              <Route path="/verify-seller" element={<ProtectedRoute><SellerVerification /></ProtectedRoute>} />
             </Routes>
             </div>
             </Router>

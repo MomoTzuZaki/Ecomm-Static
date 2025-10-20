@@ -32,6 +32,7 @@ import * as yup from 'yup';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { verificationAPI } from '../services/api';
+import { useNotification } from '../context/NotificationContext';
 
 const schema = yup.object({
   name: yup.string().required('Full name is required'),
@@ -66,6 +67,7 @@ const SellerVerification = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [verificationId, setVerificationId] = useState('');
+  const [existingVerification, setExistingVerification] = useState(null);
   const [idImage, setIdImage] = useState(null);
   const [selfieImage, setSelfieImage] = useState(null);
   const [proofOfOwnership, setProofOfOwnership] = useState(null);
@@ -81,8 +83,9 @@ const SellerVerification = () => {
   const [directName, setDirectName] = useState('');
   // Direct state for phone number field to bypass form issues
   const [directPhone, setDirectPhone] = useState('');
+  const { showNotification } = useNotification();
 
-  // Clear form data when component mounts
+  // Clear form data when component mounts and check for existing verification
   useEffect(() => {
     setFormData({
       name: '',
@@ -91,7 +94,26 @@ const SellerVerification = () => {
       idType: '',
       idNumber: '',
     });
-  }, []);
+
+    // Check for existing verification application
+    const checkExistingVerification = async () => {
+      try {
+        const response = await verificationAPI.getMyVerificationStatus();
+        if (response.verification) {
+          setExistingVerification(response.verification);
+          if (response.verification.status === 'pending') {
+            showNotification('You already have a verification application in progress.', 'info');
+          }
+        }
+      } catch (error) {
+        console.error('Error checking existing verification:', error);
+      }
+    };
+
+    if (user) {
+      checkExistingVerification();
+    }
+  }, [user, showNotification]);
 
   const {
     control,
@@ -172,11 +194,16 @@ const SellerVerification = () => {
   };
 
   const onSubmit = async (data) => {
+    // Check if user already has a pending verification
+    if (existingVerification && existingVerification.status === 'pending') {
+      showNotification('You already have a verification application in progress.', 'warning');
+      return;
+    }
+
     setLoading(true);
     
     try {
       const verificationData = {
-        fullName: data.name, // Map 'name' to 'fullName' for backend compatibility
         phoneNumber: data.phoneNumber || directPhone, // Use direct phone as fallback
         address: data.address,
         idType: data.idType,
@@ -190,9 +217,12 @@ const SellerVerification = () => {
       
       setVerificationId(response.verificationId);
       setSuccess(true);
+      
+      // Show success notification
+      showNotification('✅ Verification submitted successfully! Your submission is being verified by admin. You will be notified once approved.', 'success');
     } catch (error) {
       console.error('Error submitting verification:', error);
-      alert(error.message || 'Failed to submit verification request');
+      showNotification(error.message || 'Failed to submit verification request', 'error');
     } finally {
       setLoading(false);
     }
@@ -533,6 +563,7 @@ const SellerVerification = () => {
   };
 
   if (success) {
+    console.log('Success page rendering, verificationId:', verificationId);
     return (
       <Container maxWidth="md" sx={{ py: 4 }}>
         <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}>
@@ -541,8 +572,9 @@ const SellerVerification = () => {
             Verification Submitted!
           </Typography>
           <Typography variant="body1" sx={{ mb: 3 }}>
-            Your seller verification request has been submitted successfully. 
+            Your seller verification request has been submitted successfully! 
             Our admin team will review your application within 24-48 hours.
+            <strong> Once approved, you'll be able to post and sell products on TechCycle.</strong>
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             <strong>Verification ID:</strong> {verificationId}
@@ -550,15 +582,141 @@ const SellerVerification = () => {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             You will receive an email notification once your verification is approved or if additional information is needed.
           </Typography>
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 2 }}>
+            <Button
+              variant="contained"
+              size="large"
+              onClick={() => {
+                console.log('Go to Dashboard button clicked, navigating to dashboard');
+                try {
+                  navigate('/dashboard?tab=2');
+                  console.log('Navigation called successfully');
+                } catch (error) {
+                  console.error('Navigation error:', error);
+                }
+              }}
+            >
+              Go to Dashboard
+            </Button>
+            <Button
+              variant="outlined"
+              size="large"
+              onClick={() => {
+                console.log('Force navigation to dashboard');
+                window.location.href = '/dashboard?tab=2';
+              }}
+            >
+              Force Go to Dashboard
+            </Button>
+          </Box>
+        </Paper>
+      </Container>
+    );
+  }
+
+  // If user already has a pending verification, show status message (but not if we just submitted)
+  console.log('Component state - success:', success, 'existingVerification:', existingVerification);
+  if (existingVerification && existingVerification.status === 'pending' && !success) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Verification Application Status
+        </Typography>
+        
+        <Alert severity="info" sx={{ mb: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            You already have a verification application in progress
+          </Typography>
+          <Typography variant="body2">
+            Your seller verification application is currently being reviewed by our admin team. 
+            You will be notified once the verification process is complete.
+          </Typography>
+        </Alert>
+
+        <Card sx={{ mb: 4 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Application Details
+            </Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 2 }}>
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  Application ID
+                </Typography>
+                <Typography variant="body1" fontWeight="bold">
+                  {existingVerification.id}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  Status
+                </Typography>
+                <Typography variant="body1" fontWeight="bold" color="warning.main">
+                  {existingVerification.status.charAt(0).toUpperCase() + existingVerification.status.slice(1)}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  Submitted On
+                </Typography>
+                <Typography variant="body1" fontWeight="bold">
+                  {new Date(existingVerification.createdAt).toLocaleDateString()}
+                </Typography>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
+
+        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
           <Button
-            variant="contained"
-            onClick={() => {
-              window.location.href = '/dashboard?tab=2';
-            }}
+            variant="outlined"
+            onClick={() => navigate('/dashboard')}
           >
             Go to Dashboard
           </Button>
-        </Paper>
+          <Button
+            variant="contained"
+            onClick={() => window.location.reload()}
+          >
+            Refresh Status
+          </Button>
+        </Box>
+      </Container>
+    );
+  }
+
+  // If user already has an approved verification, show success message (but not if we just submitted)
+  if (existingVerification && existingVerification.status === 'approved' && !success) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Verification Complete
+        </Typography>
+        
+        <Alert severity="success" sx={{ mb: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            🎉 You are now a verified seller!
+          </Typography>
+          <Typography variant="body2">
+            Congratulations! Your seller verification has been approved. 
+            You can now list and sell products on TechCycle.
+          </Typography>
+        </Alert>
+
+        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+          <Button
+            variant="outlined"
+            onClick={() => navigate('/dashboard')}
+          >
+            Go to Dashboard
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => navigate('/sell')}
+          >
+            List Your First Product
+          </Button>
+        </Box>
       </Container>
     );
   }
@@ -603,12 +761,41 @@ const SellerVerification = () => {
                   onClick={() => {
                     // Get form data using react-hook-form's getValues
                     const formData = getValues();
+                    console.log('🔍 DEBUG: Form data before submission:', formData);
                     onSubmit(formData);
                   }}
                   disabled={loading}
                   startIcon={<CheckCircleIcon />}
                 >
                   {loading ? 'Submitting...' : 'Submit Verification'}
+                </Button>
+                
+                {/* DEBUG: Test submission button */}
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={async () => {
+                    console.log('🔍 DEBUG: Testing verification submission...');
+                    try {
+                      const testData = {
+                        name: 'Debug Test User',
+                        address: '123 Debug Street',
+                        phoneNumber: '555-123-4567',
+                        idType: 'Driver\'s License',
+                        idNumber: 'DEBUG123456'
+                      };
+                      
+                      const response = await verificationAPI.submitVerification(testData);
+                      console.log('🔍 DEBUG: Test submission response:', response);
+                      alert('Test verification submitted! Check console and admin dashboard.');
+                    } catch (error) {
+                      console.error('🔍 DEBUG: Test submission error:', error);
+                      alert('Test submission failed: ' + error.message);
+                    }
+                  }}
+                  sx={{ mt: 1 }}
+                >
+                  DEBUG: Test Submit
                 </Button>
               </>
             ) : (

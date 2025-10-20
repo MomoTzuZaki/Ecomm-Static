@@ -32,7 +32,8 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { verificationAPI } from '../services/api';
+import { verificationAPI, clearAllStorage } from '../services/api';
+import { useNotification } from '../context/NotificationContext';
 
 // Mock data - replace with actual API calls
 const mockUserProducts = [
@@ -74,32 +75,55 @@ const mockPurchaseHistory = [
 ];
 
 const UserDashboard = () => {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [tabValue, setTabValue] = useState(0);
   const [verificationStatus, setVerificationStatus] = useState(null);
+  const { showNotification } = useNotification();
 
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
 
-  // Load verification status
+  // Load verification status with debouncing
   React.useEffect(() => {
     const loadVerificationStatus = async () => {
       try {
         const response = await verificationAPI.getMyVerificationStatus();
-        setVerificationStatus(response.verification);
+        const newVerification = response.verification;
+        setVerificationStatus(newVerification);
+        
+        // Show notification if verification status changed
+        if (newVerification && newVerification.status !== user?.verificationStatus) {
+          if (newVerification.status === 'approved') {
+            showNotification('🎉 Congratulations! You are now a verified seller and can post and sell products!', 'success');
+            // Update user context without reloading
+            const updatedUser = { ...user, role: 'seller', isVerified: true, verificationStatus: 'approved' };
+            localStorage.setItem('techCycleUser', JSON.stringify(updatedUser));
+            // Update user context in memory
+            setUser(updatedUser);
+          } else if (newVerification.status === 'rejected') {
+            showNotification('❌ Your seller verification was rejected. Please check the admin notes and resubmit.', 'error');
+          } else if (newVerification.status === 'pending') {
+            showNotification('⏳ Your verification request is being reviewed by admin. You will be notified once processed.', 'info');
+          }
+        }
       } catch (error) {
         console.error('Error loading verification status:', error);
       }
     };
 
     if (user?.id) {
-      loadVerificationStatus();
+      // Add a small delay to prevent rapid API calls
+      const timeoutId = setTimeout(loadVerificationStatus, 100);
+      return () => clearTimeout(timeoutId);
+    } else {
+      // Clear verification status when user logs out
+      setVerificationStatus(null);
     }
-  }, [user?.id]);
+  }, [user?.id, user?.verificationStatus, showNotification, setUser, user]);
 
   // Handle URL parameter for tab navigation
   React.useEffect(() => {
@@ -183,11 +207,11 @@ const UserDashboard = () => {
                 Seller Status
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {user?.role === 'seller' ? (
+                {user?.role === 'seller' && user?.isVerified ? (
                   <>
                     <CheckCircleIcon color="success" />
                     <Typography variant="h6" color="success.main">
-                      Verified Seller
+                      ✅ Verified Seller
                     </Typography>
                   </>
                 ) : user?.verificationStatus === 'pending' ? (
@@ -223,6 +247,37 @@ const UserDashboard = () => {
         </Grid>
       </Grid>
 
+      {/* Verified Seller Success Message */}
+      {user?.role === 'seller' && user?.isVerified && (
+        <Card sx={{ mb: 4, bgcolor: 'success.light', color: 'white' }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box>
+                <Typography variant="h6" gutterBottom>
+                  🎉 You are now a Verified Seller!
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Congratulations!</strong> Your seller verification has been approved. 
+                  You can now post and sell products on TechCycle.
+                </Typography>
+                <Typography variant="body2">
+                  Start listing your gadgets and reach thousands of potential buyers!
+                </Typography>
+              </Box>
+              <Button
+                variant="contained"
+                color="secondary"
+                startIcon={<AddIcon />}
+                onClick={() => navigate('/sell')}
+                sx={{ ml: 2 }}
+              >
+                List Your First Product
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Seller Verification Prompt */}
       {user?.role === 'user' && user?.verificationStatus !== 'pending' && (
         <Card sx={{ mb: 4, bgcolor: 'primary.light', color: 'white' }}>
@@ -257,25 +312,95 @@ const UserDashboard = () => {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Box>
                 <Typography variant="h6" gutterBottom>
-                  Verification Under Review
+                  🕐 Verification Under Review
                 </Typography>
-                <Typography variant="body2">
-                  Your seller verification request is being reviewed by our admin team. You'll receive a notification once it's processed.
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  Your seller verification request is being reviewed by our admin team. 
+                  <strong> You'll receive a notification once it's processed.</strong>
                 </Typography>
-                {user?.verificationId && (
-                  <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
-                    Verification ID: {user.verificationId}
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Status:</strong> Your submission is being verified by admin
+                </Typography>
+                {verificationStatus?.id && (
+                  <Typography variant="caption" sx={{ mt: 1, display: 'block', opacity: 0.9 }}>
+                    Verification ID: {verificationStatus.id}
                   </Typography>
                 )}
               </Box>
-              <PendingIcon sx={{ fontSize: 40, ml: 2 }} />
+              <Box sx={{ textAlign: 'center' }}>
+                <ScheduleIcon sx={{ fontSize: 50, mb: 1 }} />
+                <Typography variant="caption" sx={{ display: 'block' }}>
+                  Under Review
+                </Typography>
+              </Box>
             </Box>
           </CardContent>
         </Card>
       )}
 
+      {/* Seller Tools for Verified Sellers */}
+      {user?.role === 'seller' && user?.isVerified && (
+        <Card sx={{ mb: 4, bgcolor: 'grey.50' }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <AddIcon color="primary" />
+              Seller Tools
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              You're now a verified seller! Use these tools to manage your products and sales.
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={3}>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  startIcon={<AddIcon />}
+                  onClick={() => navigate('/sell')}
+                  sx={{ mb: 1 }}
+                >
+                  List New Product
+                </Button>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  startIcon={<ViewIcon />}
+                  onClick={() => navigate('/seller-orders')}
+                  sx={{ mb: 1 }}
+                >
+                  View Orders
+                </Button>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  startIcon={<EditIcon />}
+                  onClick={() => navigate('/dashboard?tab=1')}
+                  sx={{ mb: 1 }}
+                >
+                  Manage Products
+                </Button>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  startIcon={<SecurityIcon />}
+                  onClick={() => navigate('/dashboard?tab=2')}
+                  sx={{ mb: 1 }}
+                >
+                  Seller Stats
+                </Button>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Verification Status Monitor */}
-      {verificationStatus && (
+      {verificationStatus && user && (
         <Card sx={{ mb: 4 }}>
           <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -283,11 +408,41 @@ const UserDashboard = () => {
                 Verification Status Monitor
               </Typography>
               <IconButton onClick={() => {
-                // Clear old verification data and reload
-                localStorage.removeItem('sellerVerifications');
-                window.location.reload();
+                // Reload verification status
+                const loadVerificationStatus = async () => {
+                  try {
+                    const response = await verificationAPI.getMyVerificationStatus();
+                    setVerificationStatus(response.verification);
+                  } catch (error) {
+                    console.error('Error loading verification status:', error);
+                  }
+                };
+                loadVerificationStatus();
               }}>
                 <RefreshIcon />
+              </IconButton>
+              <IconButton
+                color="warning"
+                onClick={async () => {
+                  if (window.confirm('This will clear all stored data (products, transactions, verifications) but keep you logged in. Continue?')) {
+                    const success = clearAllStorage();
+                    if (success) {
+                      showNotification('Storage cleared successfully!', 'success');
+                      // Refresh verification status
+                      try {
+                        const response = await verificationAPI.getMyVerificationStatus();
+                        setVerificationStatus(response.verification);
+                      } catch (error) {
+                        console.error('Error loading verification status:', error);
+                      }
+                    } else {
+                      showNotification('Failed to clear storage', 'error');
+                    }
+                  }
+                }}
+                title="Clear Storage"
+              >
+                <DeleteIcon />
               </IconButton>
             </Box>
             
@@ -308,13 +463,13 @@ const UserDashboard = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                   <SecurityIcon color="primary" />
                   <Typography variant="body2">
-                    <strong>ID:</strong> {verificationStatus.verificationId}
+                    <strong>ID:</strong> {verificationStatus.id}
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                   <CheckCircleIcon color="primary" />
                   <Typography variant="body2">
-                    <strong>Submitted:</strong> {new Date(verificationStatus.submittedAt).toLocaleDateString()}
+                    <strong>Submitted:</strong> {new Date(verificationStatus.createdAt).toLocaleDateString()}
                   </Typography>
                 </Box>
               </Grid>

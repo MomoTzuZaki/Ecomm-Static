@@ -35,7 +35,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useProducts } from '../context/ProductContext';
-import { verificationAPI } from '../services/api';
+import { verificationAPI, adminNotificationAPI } from '../services/api';
 
 // Mock data - replace with actual API calls
 const mockPendingProducts = [
@@ -76,20 +76,34 @@ const AdminDashboard = () => {
     approved: 0,
     rejected: 0
   });
+  const [notifications, setNotifications] = useState([]);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
 
-  // Load verification data
+  // Load verification data and notifications
   useEffect(() => {
     loadVerifications();
+    loadNotifications();
   }, []);
+
+  // Load admin notifications
+  const loadNotifications = async () => {
+    try {
+      const response = await adminNotificationAPI.getNotifications();
+      setNotifications(response.notifications || []);
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+      setNotifications([]);
+    }
+  };
 
   const loadVerifications = async () => {
     try {
       const response = await verificationAPI.getAllVerifications();
       const verifications = response.verifications || [];
+      console.log('Loaded verifications:', verifications);
       setVerifications(verifications);
       
       // Calculate stats
@@ -98,9 +112,13 @@ const AdminDashboard = () => {
         return acc;
       }, { pending: 0, approved: 0, rejected: 0 });
       
+      console.log('Verification stats:', stats);
       setVerificationStats(stats);
     } catch (error) {
       console.error('Error loading verifications:', error);
+      // Set empty arrays on error to prevent crashes
+      setVerifications([]);
+      setVerificationStats({ pending: 0, approved: 0, rejected: 0 });
     }
   };
 
@@ -145,9 +163,20 @@ const AdminDashboard = () => {
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Admin Dashboard
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h4" component="h1">
+            Admin Dashboard
+          </Typography>
+          {notifications.filter(n => !n.read).length > 0 && (
+            <Chip
+              label={`${notifications.filter(n => !n.read).length} New Verification${notifications.filter(n => !n.read).length > 1 ? 's' : ''}`}
+              color="warning"
+              variant="filled"
+              onClick={() => navigate('/admin/verification')}
+              sx={{ cursor: 'pointer' }}
+            />
+          )}
+        </Box>
         <Typography variant="body1" color="text.secondary">
           Manage products, seller verifications, and platform analytics
         </Typography>
@@ -421,12 +450,12 @@ const AdminDashboard = () => {
                     <TableRow key={verification.id}>
                       <TableCell>
                         {verification.user ? 
-                          `${verification.user.firstName} ${verification.user.lastName}` : 
+                          `${verification.user.firstName || verification.user.username || 'User'} ${verification.user.lastName || ''}` : 
                           'Unknown User'
                         }
                       </TableCell>
                       <TableCell>{verification.user?.email || 'No email'}</TableCell>
-                      <TableCell>{verification.validIdType}</TableCell>
+                      <TableCell>{verification.idType || verification.validIdType || 'N/A'}</TableCell>
                       <TableCell>
                         <Chip
                           label={verification.status.toUpperCase()}

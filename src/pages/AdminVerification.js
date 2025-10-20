@@ -27,6 +27,8 @@ import {
   Person as PersonIcon,
   Security as SecurityIcon,
   Home as HomeIcon,
+  Schedule as PendingIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { verificationAPI } from '../services/api';
@@ -48,8 +50,13 @@ const AdminVerification = () => {
 
   const loadVerifications = async () => {
     try {
+      console.log('🔍 DEBUG: Loading verifications in AdminVerification component...');
       const response = await verificationAPI.getAllVerifications();
-      setVerifications(response.verifications || []);
+      console.log('🔍 DEBUG: API response:', response);
+      const verifications = response.verifications || [];
+      console.log('🔍 DEBUG: Setting verifications state:', verifications);
+      setVerifications(verifications);
+      console.log('🔍 DEBUG: Verifications state updated!');
     } catch (error) {
       console.error('Error loading verifications:', error);
       // Set empty array on error to prevent crashes
@@ -74,14 +81,32 @@ const AdminVerification = () => {
     setActionDialogOpen(true);
   };
 
+  const handleSetPending = (verification) => {
+    setSelectedVerification(verification);
+    setActionType('pending');
+    setActionDialogOpen(true);
+  };
+
   const confirmAction = async () => {
     if (!selectedVerification) return;
 
     try {
+      let status, notes;
+      if (actionType === 'approve') {
+        status = 'approved';
+        notes = approvalNotes;
+      } else if (actionType === 'reject') {
+        status = 'rejected';
+        notes = rejectionReason;
+      } else if (actionType === 'pending') {
+        status = 'pending';
+        notes = approvalNotes || rejectionReason;
+      }
+
       await verificationAPI.updateVerificationStatus(
         selectedVerification.id,
-        actionType === 'approve' ? 'approved' : 'rejected',
-        actionType === 'reject' ? rejectionReason : approvalNotes
+        status,
+        notes
       );
 
       // Reload verifications to get updated data
@@ -91,6 +116,11 @@ const AdminVerification = () => {
       setSelectedVerification(null);
       setRejectionReason('');
       setApprovalNotes('');
+      
+      // Show success notification
+      const actionText = actionType === 'approve' ? 'approved' : 
+                        actionType === 'reject' ? 'rejected' : 'set to pending';
+      alert(`Verification ${actionText} successfully!`);
     } catch (error) {
       console.error('Error updating verification status:', error);
       alert(error.message || 'Failed to update verification status');
@@ -130,7 +160,7 @@ const AdminVerification = () => {
           </Grid>
           <Grid item xs={12} md={6}>
             <Typography variant="h6" gutterBottom>
-              {verification.user ? `${verification.user.firstName} ${verification.user.lastName}` : 'Unknown User'}
+              {verification.user ? `${verification.user.firstName || verification.user.username || 'User'} ${verification.user.lastName || ''}` : 'Unknown User'}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <PersonIcon fontSize="small" />
@@ -143,7 +173,7 @@ const AdminVerification = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <SecurityIcon fontSize="small" />
               <Typography variant="body2">
-                {verification.validIdType}
+                {verification.idType || verification.validIdType || 'N/A'}
               </Typography>
             </Box>
             <Typography variant="caption" color="text.secondary">
@@ -188,26 +218,48 @@ const AdminVerification = () => {
                 </>
               )}
               {verification.status === 'approved' && (
-                <Button
-                  variant="outlined"
-                  color="error"
-                  size="small"
-                  startIcon={<RejectIcon />}
-                  onClick={() => handleReject(verification)}
-                >
-                  Reject
-                </Button>
+                <>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    startIcon={<RejectIcon />}
+                    onClick={() => handleReject(verification)}
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    size="small"
+                    startIcon={<PendingIcon />}
+                    onClick={() => handleSetPending(verification)}
+                  >
+                    Set to Pending
+                  </Button>
+                </>
               )}
               {verification.status === 'rejected' && (
-                <Button
-                  variant="outlined"
-                  color="success"
-                  size="small"
-                  startIcon={<ApproveIcon />}
-                  onClick={() => handleApprove(verification)}
-                >
-                  Approve
-                </Button>
+                <>
+                  <Button
+                    variant="outlined"
+                    color="success"
+                    size="small"
+                    startIcon={<ApproveIcon />}
+                    onClick={() => handleApprove(verification)}
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    size="small"
+                    startIcon={<PendingIcon />}
+                    onClick={() => handleSetPending(verification)}
+                  >
+                    Set to Pending
+                  </Button>
+                </>
               )}
             </Box>
           </Grid>
@@ -218,12 +270,76 @@ const AdminVerification = () => {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Seller Verification Management
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Review and approve seller verification requests to maintain platform quality and trust.
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+        <Box>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Seller Verification Management
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Review and approve seller verification requests to maintain platform quality and trust.
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={loadVerifications}
+            sx={{ alignSelf: 'flex-start' }}
+          >
+            Refresh
+          </Button>
+          
+          <Button
+            variant="outlined"
+            color="error"
+            onClick={() => {
+              console.log('🔍 DEBUG: Manual localStorage check...');
+              const rawData = localStorage.getItem('sellerVerifications');
+              console.log('🔍 DEBUG: Raw localStorage data:', rawData);
+              const parsedData = JSON.parse(rawData || '[]');
+              console.log('🔍 DEBUG: Parsed data:', parsedData);
+              alert(`Found ${parsedData.length} verifications in localStorage. Check console for details.`);
+            }}
+          >
+            Check localStorage
+          </Button>
+          
+          <Button
+            variant="outlined"
+            color="warning"
+            onClick={() => {
+              console.log('🔍 DEBUG: Creating test verification...');
+              const testVerification = {
+                id: `VER-TEST-${Date.now()}`,
+                userId: 'test-user-123',
+                user: {
+                  id: 'test-user-123',
+                  username: 'TestUser123',
+                  email: 'test@example.com',
+                  firstName: 'Test',
+                  lastName: 'User'
+                },
+                name: 'Test User',
+                address: '123 Test Street, Test City',
+                phoneNumber: '123-456-7890',
+                idType: 'Driver\'s License',
+                idNumber: 'TEST123456',
+                status: 'pending',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              };
+              
+              const existingVerifications = JSON.parse(localStorage.getItem('sellerVerifications') || '[]');
+              existingVerifications.push(testVerification);
+              localStorage.setItem('sellerVerifications', JSON.stringify(existingVerifications));
+              console.log('🔍 DEBUG: Test verification created:', testVerification);
+              alert('Test verification created! Click Refresh to see it.');
+            }}
+          >
+            Create Test
+          </Button>
+        </Box>
+      </Box>
 
       <Paper sx={{ mb: 3 }}>
         <Tabs
@@ -265,7 +381,7 @@ const AdminVerification = () => {
                     Personal Information
                   </Typography>
                   <Typography variant="body2" gutterBottom>
-                    <strong>Name:</strong> {selectedVerification.user ? `${selectedVerification.user.firstName} ${selectedVerification.user.lastName}` : 'Unknown User'}
+                    <strong>Name:</strong> {selectedVerification.user ? `${selectedVerification.user.firstName || selectedVerification.user.username || 'User'} ${selectedVerification.user.lastName || ''}` : 'Unknown User'}
                   </Typography>
                   <Typography variant="body2" gutterBottom>
                     <strong>Email:</strong> {selectedVerification.user?.email || 'No email'}
@@ -278,7 +394,7 @@ const AdminVerification = () => {
                     ID Information
                   </Typography>
                   <Typography variant="body2" gutterBottom>
-                    <strong>ID Type:</strong> {selectedVerification.validIdType}
+                    <strong>ID Type:</strong> {selectedVerification.idType || selectedVerification.validIdType || 'N/A'}
                   </Typography>
                   <Typography variant="body2" gutterBottom>
                     <strong>Status:</strong> {selectedVerification.status}
@@ -363,7 +479,8 @@ const AdminVerification = () => {
         fullWidth
       >
         <DialogTitle>
-          {actionType === 'approve' ? 'Approve Verification' : 'Reject Verification'}
+          {actionType === 'approve' ? 'Approve Verification' : 
+           actionType === 'reject' ? 'Reject Verification' : 'Set to Pending'}
         </DialogTitle>
         <DialogContent>
           {actionType === 'approve' ? (
@@ -401,16 +518,36 @@ const AdminVerification = () => {
               />
             </Box>
           )}
+          {actionType === 'pending' && (
+            <Box>
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Are you sure you want to set this verification back to pending status? 
+                This will reset the verification status and allow for further review.
+              </Alert>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="Notes (Optional)"
+                value={approvalNotes}
+                onChange={(e) => setApprovalNotes(e.target.value)}
+                placeholder="Add any notes about setting to pending..."
+                sx={{ mt: 2 }}
+              />
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setActionDialogOpen(false)}>Cancel</Button>
           <Button
             variant="contained"
-            color={actionType === 'approve' ? 'success' : 'error'}
+            color={actionType === 'approve' ? 'success' : 
+                   actionType === 'reject' ? 'error' : 'warning'}
             onClick={confirmAction}
             disabled={actionType === 'reject' && !rejectionReason.trim()}
           >
-            {actionType === 'approve' ? 'Approve' : 'Reject'}
+            {actionType === 'approve' ? 'Approve' : 
+             actionType === 'reject' ? 'Reject' : 'Set to Pending'}
           </Button>
         </DialogActions>
       </Dialog>

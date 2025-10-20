@@ -58,6 +58,8 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     localStorage.removeItem('techCycleUser');
     localStorage.removeItem('authToken');
+    // Clear verification data to prevent showing old verification status
+    localStorage.removeItem('sellerVerifications');
   };
 
   const isAdmin = () => {
@@ -70,6 +72,7 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
+    setUser,
     login,
     register,
     logout,

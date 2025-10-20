@@ -14,6 +14,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { createAdminUser, createTestAccounts } from '../services/api';
 
 const schema = yup.object({
   email: yup.string().email('Invalid email').required('Email is required'),
@@ -21,7 +22,7 @@ const schema = yup.object({
 });
 
 const Login = () => {
-  const { login } = useAuth();
+  const { login, setUser } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -127,6 +128,58 @@ const Login = () => {
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Admin: admin@techcycle.com / password
+            </Typography>
+          </Box>
+
+          {/* Quick Admin Access */}
+          <Box sx={{ mt: 2, textAlign: 'center' }}>
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={() => {
+                const adminUser = createAdminUser();
+                setUser(adminUser);
+                navigate('/admin');
+              }}
+              sx={{ mt: 1 }}
+            >
+              Quick Admin Access
+            </Button>
+          </Box>
+
+          {/* Test Seller Accounts */}
+          <Box sx={{ mt: 2, textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Test Seller Accounts:
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Button
+                variant="outlined"
+                color="success"
+                onClick={() => {
+                  const { verifiedSeller } = createTestAccounts();
+                  setUser(verifiedSeller);
+                  navigate('/dashboard');
+                }}
+                size="small"
+              >
+                Verified Seller
+              </Button>
+              <Button
+                variant="outlined"
+                color="warning"
+                onClick={() => {
+                  const { nonVerifiedSeller } = createTestAccounts();
+                  setUser(nonVerifiedSeller);
+                  navigate('/dashboard');
+                }}
+                size="small"
+              >
+                Unverified Seller
+              </Button>
+            </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              Verified: verifiedseller / password | Unverified: unverifiedseller / password
             </Typography>
           </Box>
         </Paper>

@@ -3,6 +3,92 @@
 
 const USERS_KEY = 'techCycleUsers';
 
+// localStorage management utilities
+const STORAGE_QUOTA_LIMIT = 10 * 1024 * 1024; // 10MB limit (increased)
+const CLEANUP_THRESHOLD = 0.9; // Clean up when 90% full (less aggressive)
+const MAX_ITEM_SIZE = 1024 * 1024; // 1MB max per item (more reasonable)
+
+// Check localStorage usage and clean up if necessary
+const manageStorageQuota = () => {
+  try {
+    let totalSize = 0;
+    for (let key in localStorage) {
+      if (localStorage.hasOwnProperty(key)) {
+        totalSize += localStorage[key].length + key.length;
+      }
+    }
+    
+    if (totalSize > STORAGE_QUOTA_LIMIT * CLEANUP_THRESHOLD) {
+      console.log('Storage quota approaching limit, cleaning up...');
+      cleanupOldData();
+    }
+  } catch (error) {
+    console.warn('Storage quota check failed:', error);
+  }
+};
+
+// Clean up old data to free space
+const cleanupOldData = () => {
+  try {
+    // Clean up old transactions (keep only last 100 - increased)
+    const transactions = JSON.parse(localStorage.getItem('techCycleTransactions') || '[]');
+    if (transactions.length > 100) {
+      const sortedTransactions = transactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      const recentTransactions = sortedTransactions.slice(0, 100);
+      localStorage.setItem('techCycleTransactions', JSON.stringify(recentTransactions));
+    }
+    
+    // Clean up old verifications (keep only last 50 - increased)
+    const verifications = JSON.parse(localStorage.getItem('sellerVerifications') || '[]');
+    if (verifications.length > 50) {
+      const sortedVerifications = verifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      const recentVerifications = sortedVerifications.slice(0, 50);
+      localStorage.setItem('sellerVerifications', JSON.stringify(recentVerifications));
+    }
+    
+    // Clean up old products (keep only last 200 - increased)
+    const products = JSON.parse(localStorage.getItem('techCycleProducts') || '[]');
+    if (products.length > 200) {
+      const sortedProducts = products.sort((a, b) => new Date(b.datePosted || b.createdAt) - new Date(a.datePosted || a.createdAt));
+      const recentProducts = sortedProducts.slice(0, 200);
+      localStorage.setItem('techCycleProducts', JSON.stringify(recentProducts));
+    }
+    
+    console.log('Storage cleanup completed');
+  } catch (error) {
+    console.error('Storage cleanup failed:', error);
+  }
+};
+
+// Safe localStorage setter with quota management
+const safeSetItem = (key, value, skipSizeCheck = false) => {
+  const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
+  
+  try {
+    // Skip size check for small items like verifications
+    if (!skipSizeCheck && stringValue.length > MAX_ITEM_SIZE) {
+      throw new Error('Item too large for localStorage');
+    }
+    
+    localStorage.setItem(key, stringValue);
+    manageStorageQuota();
+  } catch (error) {
+    console.error(`Error storing to localStorage: ${key}`, error);
+    if (error.name === 'QuotaExceededError' || error.message.includes('quota')) {
+      console.warn('localStorage quota exceeded, attempting cleanup...');
+      cleanupOldData();
+      try {
+        localStorage.setItem(key, stringValue);
+      } catch (retryError) {
+        console.error('Failed to store data even after cleanup:', retryError);
+        throw new Error('Storage quota exceeded. Please clear browser data or use a different browser.');
+      }
+    } else {
+      throw error;
+    }
+  }
+};
+
 const readUsers = () => {
   const raw = localStorage.getItem(USERS_KEY);
   try {
@@ -13,7 +99,7 @@ const readUsers = () => {
 };
 
 const writeUsers = (users) => {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  safeSetItem(USERS_KEY, users);
 };
 
 const generateToken = (email) => {
@@ -108,76 +194,258 @@ export const authAPI = {
   },
 };
 
-// Database API for verification management
-export const verificationAPI = {
-  submitVerification: async (verificationData) => {
-    const token = localStorage.getItem('techCycleToken');
-    const response = await fetch('/api/verifications', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(verificationData)
+// Helper function to create admin user for testing
+export const createAdminUser = () => {
+  const adminUser = {
+    id: 'admin-001',
+    username: 'admin',
+    email: 'admin@techcycle.com',
+    firstName: 'Admin',
+    lastName: 'User',
+    role: 'admin',
+    isVerified: true,
+    verificationStatus: 'approved',
+    createdAt: new Date().toISOString()
+  };
+  
+  safeSetItem('techCycleUser', adminUser, true); // Skip size check for user data
+  return adminUser;
+};
+
+// Helper function to create test seller accounts
+export const createTestAccounts = () => {
+  const verifiedSeller = {
+    id: 'seller-verified-001',
+    username: 'verifiedseller',
+    email: 'verified@example.com',
+    firstName: 'Verified',
+    lastName: 'Seller',
+    role: 'seller',
+    isVerified: true,
+    verificationStatus: 'approved',
+    createdAt: new Date().toISOString()
+  };
+
+  const nonVerifiedSeller = {
+    id: 'seller-unverified-001',
+    username: 'unverifiedseller',
+    email: 'unverified@example.com',
+    firstName: 'Unverified',
+    lastName: 'Seller',
+    role: 'user',
+    isVerified: false,
+    verificationStatus: null,
+    createdAt: new Date().toISOString()
+  };
+
+  // Create a test verification for the unverified seller
+  const testVerification = {
+    id: 'VER-TEST-001',
+    userId: nonVerifiedSeller.id,
+    user: {
+      id: nonVerifiedSeller.id,
+      username: nonVerifiedSeller.username,
+      email: nonVerifiedSeller.email,
+      firstName: nonVerifiedSeller.firstName,
+      lastName: nonVerifiedSeller.lastName
+    },
+    name: 'Unverified Seller',
+    address: '123 Test Street, Test City',
+    phoneNumber: '555-123-4567',
+    idType: 'Driver\'s License',
+    idNumber: 'TEST123456',
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  // Store the test verification
+  const existingVerifications = JSON.parse(localStorage.getItem('sellerVerifications') || '[]');
+  const existingTestVerification = existingVerifications.find(v => v.id === testVerification.id);
+  
+  if (!existingTestVerification) {
+    existingVerifications.push(testVerification);
+    safeSetItem('sellerVerifications', existingVerifications, true);
+  }
+
+  return { verifiedSeller, nonVerifiedSeller };
+};
+
+// Utility function to clear all localStorage data
+export const clearAllStorage = () => {
+  try {
+    const keysToKeep = ['techCycleUser']; // Keep current user logged in
+    const currentUser = localStorage.getItem('techCycleUser');
+    
+    // Clear all localStorage except current user
+    Object.keys(localStorage).forEach(key => {
+      if (!keysToKeep.includes(key)) {
+        localStorage.removeItem(key);
+      }
     });
     
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to submit verification');
+    // Restore current user
+    if (currentUser) {
+      localStorage.setItem('techCycleUser', currentUser);
     }
     
-    return await response.json();
+    console.log('localStorage cleared successfully');
+    return true;
+  } catch (error) {
+    console.error('Failed to clear localStorage:', error);
+    return false;
+  }
+};
+
+// LocalStorage-based verification management (No Backend)
+export const verificationAPI = {
+  submitVerification: async (verificationData) => {
+    try {
+      // Get current user
+      const user = JSON.parse(localStorage.getItem('techCycleUser'));
+      if (!user) {
+        throw new Error('User not found. Please login first.');
+      }
+
+      // Generate verification ID
+      const verificationId = `VER-${Date.now()}`;
+      
+      // Create verification object
+      const verification = {
+        id: verificationId,
+        userId: user.id,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          firstName: user.firstName || user.username,
+          lastName: user.lastName || ''
+        },
+        ...verificationData,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      // Store in localStorage
+      const existingVerifications = JSON.parse(localStorage.getItem('sellerVerifications') || '[]');
+      
+      // Check if user already has pending verification
+      const existingPending = existingVerifications.find(v => 
+        v.userId === user.id && v.status === 'pending'
+      );
+      
+      if (existingPending) {
+        throw new Error('You already have a pending verification request');
+      }
+
+      existingVerifications.push(verification);
+      console.log('🔍 DEBUG: About to store verification:', verification);
+      console.log('🔍 DEBUG: All verifications before storing:', existingVerifications);
+      safeSetItem('sellerVerifications', existingVerifications, true); // Skip size check for verifications
+      console.log('🔍 DEBUG: Verification stored successfully!');
+
+      // Update user verification status
+      const updatedUser = { ...user, verificationStatus: 'pending' };
+      safeSetItem('techCycleUser', updatedUser, true); // Skip size check for user data
+
+      // Add admin notification for new verification request
+      const adminNotifications = JSON.parse(localStorage.getItem('adminNotifications') || '[]');
+      const notification = {
+        id: `notif-${Date.now()}`,
+        type: 'new_verification',
+        title: 'New Seller Verification Request',
+        message: `${verification.user.firstName} ${verification.user.lastName} has submitted a seller verification request.`,
+        verificationId: verificationId,
+        userId: user.id,
+        userName: `${verification.user.firstName} ${verification.user.lastName}`,
+        createdAt: new Date().toISOString(),
+        read: false
+      };
+      adminNotifications.push(notification);
+      safeSetItem('adminNotifications', adminNotifications, true);
+
+      return {
+        message: 'Verification request submitted successfully',
+        verificationId: verificationId,
+        verification: verification
+      };
+    } catch (error) {
+      throw new Error(error.message || 'Failed to submit verification');
+    }
   },
 
   getMyVerificationStatus: async () => {
-    const token = localStorage.getItem('techCycleToken');
-    const response = await fetch('/api/verifications/my-status', {
-      headers: {
-        'Authorization': `Bearer ${token}`
+    try {
+      const user = JSON.parse(localStorage.getItem('techCycleUser'));
+      if (!user) {
+        return { verification: null };
       }
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to get verification status');
+
+      const verifications = JSON.parse(localStorage.getItem('sellerVerifications') || '[]');
+      const userVerification = verifications.find(v => v.userId === user.id);
+      
+      return { verification: userVerification || null };
+    } catch (error) {
+      console.error('Error getting verification status:', error);
+      return { verification: null };
     }
-    
-    return await response.json();
   },
 
   getAllVerifications: async () => {
-    const token = localStorage.getItem('techCycleToken');
-    const response = await fetch('/api/verifications/all', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to get verifications');
+    try {
+      const rawData = localStorage.getItem('sellerVerifications');
+      console.log('🔍 DEBUG: Raw localStorage data:', rawData);
+      const verifications = JSON.parse(rawData || '[]');
+      console.log('🔍 DEBUG: Parsed verifications:', verifications);
+      console.log('🔍 DEBUG: Number of verifications found:', verifications.length);
+      return { verifications };
+    } catch (error) {
+      console.error('Error getting all verifications:', error);
+      return { verifications: [] };
     }
-    
-    return await response.json();
   },
 
   updateVerificationStatus: async (verificationId, status, rejectionReason = null) => {
-    const token = localStorage.getItem('techCycleToken');
-    const response = await fetch(`/api/verifications/${verificationId}/status`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ status, rejectionReason })
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
+    try {
+      const verifications = JSON.parse(localStorage.getItem('sellerVerifications') || '[]');
+      const verificationIndex = verifications.findIndex(v => v.id === verificationId);
+      
+      if (verificationIndex === -1) {
+        throw new Error('Verification not found');
+      }
+
+      // Update verification
+      verifications[verificationIndex].status = status;
+      verifications[verificationIndex].updatedAt = new Date().toISOString();
+      verifications[verificationIndex].adminNotes = rejectionReason;
+      verifications[verificationIndex].reviewedAt = new Date().toISOString();
+
+      safeSetItem('sellerVerifications', verifications, true); // Skip size check for verifications
+
+      // Update user status if approved
+      if (status === 'approved') {
+        const verification = verifications[verificationIndex];
+        const user = JSON.parse(localStorage.getItem('techCycleUser'));
+        
+        if (user && user.id === verification.userId) {
+          const updatedUser = { 
+            ...user, 
+            role: 'seller',
+            isVerified: true,
+            verificationStatus: 'approved'
+          };
+          safeSetItem('techCycleUser', updatedUser, true); // Skip size check for user data
+        }
+      }
+
+      return {
+        message: `Verification ${status} successfully`,
+        verification: verifications[verificationIndex]
+      };
+    } catch (error) {
       throw new Error(error.message || 'Failed to update verification status');
     }
-    
-    return await response.json();
   }
 };
 
@@ -425,7 +693,7 @@ export const productsAPI = {
           highlights: ['MagSafe case', 'Find My support', 'Great ANC']
         }
       ];
-      localStorage.setItem(key, JSON.stringify(demo));
+      safeSetItem(key, demo);
       return demo;
     }
     try {
@@ -434,7 +702,7 @@ export const productsAPI = {
       if (Array.isArray(existing) && existing.length < 16) {
         const generated = generateMockProducts(16 - existing.length, existing.length + 1);
         const augmented = [...existing, ...generated];
-        localStorage.setItem(key, JSON.stringify(augmented));
+        safeSetItem(key, augmented);
         return augmented;
       }
       return existing;
@@ -452,7 +720,7 @@ export const productsAPI = {
     const list = raw ? JSON.parse(raw) : [];
     const newProduct = { id: `p-${Date.now()}`, ...productData };
     list.push(newProduct);
-    localStorage.setItem('techCycleProducts', JSON.stringify(list));
+    safeSetItem('techCycleProducts', list);
     return newProduct;
   },
   updateProduct: async (id, productData) => {
@@ -462,7 +730,7 @@ export const productsAPI = {
     if (idx === -1) throw new Error('Product not found');
     const updated = { ...list[idx], ...productData };
     list[idx] = updated;
-    localStorage.setItem('techCycleProducts', JSON.stringify(list));
+    safeSetItem('techCycleProducts', list);
     return updated;
   },
   deleteProduct: async (id) => {
@@ -507,13 +775,13 @@ export const cartAPI = {
     const existing = cart.find(item => item.product?.id === productId);
     if (existing) {
       existing.quantity += quantity;
-      localStorage.setItem('techCycleCart', JSON.stringify(cart));
+      safeSetItem('techCycleCart', cart);
       return existing;
     }
 
     const newItem = { id: `c-${Date.now()}`, product, quantity };
     cart.push(newItem);
-    localStorage.setItem('techCycleCart', JSON.stringify(cart));
+    safeSetItem('techCycleCart', cart);
     return newItem;
   },
   updateCartItem: async (cartItemId, quantity) => {
@@ -522,18 +790,18 @@ export const cartAPI = {
     const idx = cart.findIndex(item => item.id === cartItemId);
     if (idx === -1) throw new Error('Cart item not found');
     cart[idx] = { ...cart[idx], quantity };
-    localStorage.setItem('techCycleCart', JSON.stringify(cart));
+    safeSetItem('techCycleCart', cart);
     return cart[idx];
   },
   removeFromCart: async (cartItemId) => {
     const raw = localStorage.getItem('techCycleCart');
     const cart = raw ? JSON.parse(raw) : [];
     const filtered = cart.filter(item => item.id !== cartItemId);
-    localStorage.setItem('techCycleCart', JSON.stringify(filtered));
+    safeSetItem('techCycleCart', filtered);
     return true;
   },
   clearCart: async () => {
-    localStorage.setItem('techCycleCart', JSON.stringify([]));
+    safeSetItem('techCycleCart', []);
     return true;
   },
 };
@@ -551,7 +819,7 @@ const readTransactions = () => {
 };
 
 const writeTransactions = (transactions) => {
-  localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(transactions));
+  safeSetItem(TRANSACTIONS_KEY, transactions);
 };
 
 export const transactionAPI = {
@@ -826,6 +1094,44 @@ export const transactionAPI = {
   }
 };
 
+// Admin notifications API
+export const adminNotificationAPI = {
+  getNotifications: async () => {
+    try {
+      const notifications = JSON.parse(localStorage.getItem('adminNotifications') || '[]');
+      return { notifications };
+    } catch (error) {
+      console.error('Error getting admin notifications:', error);
+      return { notifications: [] };
+    }
+  },
+
+  markAsRead: async (notificationId) => {
+    try {
+      const notifications = JSON.parse(localStorage.getItem('adminNotifications') || '[]');
+      const notificationIndex = notifications.findIndex(n => n.id === notificationId);
+      if (notificationIndex !== -1) {
+        notifications[notificationIndex].read = true;
+        safeSetItem('adminNotifications', notifications, true);
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      return { success: false };
+    }
+  },
+
+  clearNotifications: async () => {
+    try {
+      safeSetItem('adminNotifications', [], true);
+      return { success: true };
+    } catch (error) {
+      console.error('Error clearing notifications:', error);
+      return { success: false };
+    }
+  }
+};
+
 export default {
   authAPI,
   verificationAPI,
@@ -833,4 +1139,5 @@ export default {
   usersAPI,
   cartAPI,
   transactionAPI,
+  adminNotificationAPI,
 };
