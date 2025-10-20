@@ -151,35 +151,31 @@ function App() {
           <CssBaseline />
           <NotificationProvider>
             <AuthProvider>
-              <ProductProvider>
-                <CartProvider>
-            <Router>
-            <div className="App">
-              <Navbar />
-              <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<Home />} />
-                <Route path="/products" element={<ProductsB2C />} />
-                <Route path="/product/:id" element={<ProductDetail />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                
-                {/* Protected User Routes */}
-                <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
-                <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
-                <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-                <Route path="/order-confirmation" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
-                <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
-                
-                {/* Admin Routes */}
-                <Route path="/admin" element={<ProtectedRoute requireAdmin={true}><AdminDashboard /></ProtectedRoute>} />
-                <Route path="/admin/products" element={<ProtectedRoute requireAdmin={true}><AdminProductManagement /></ProtectedRoute>} />
-                <Route path="/admin/transactions" element={<ProtectedRoute requireAdmin={true}><AdminTransactions /></ProtectedRoute>} />
-              </Routes>
-            </div>
-            </Router>
-                </CartProvider>
-              </ProductProvider>
+              <Router>
+                <div className="App">
+                  <Navbar />
+                  <Routes>
+                    {/* Public Routes */}
+                    <Route path="/" element={<Home />} />
+                    <Route path="/products" element={<ProductsB2C />} />
+                    <Route path="/product/:id" element={<ProductDetail />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
+                    
+                    {/* Protected User Routes */}
+                    <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
+                    <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
+                    <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+                    <Route path="/order-confirmation" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
+                    <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+                    
+                    {/* Admin Routes */}
+                    <Route path="/admin" element={<ProtectedRoute requireAdmin={true}><AdminDashboard /></ProtectedRoute>} />
+                    <Route path="/admin/products" element={<ProtectedRoute requireAdmin={true}><AdminProductManagement /></ProtectedRoute>} />
+                    <Route path="/admin/transactions" element={<ProtectedRoute requireAdmin={true}><AdminTransactions /></ProtectedRoute>} />
+                  </Routes>
+                </div>
+              </Router>
             </AuthProvider>
           </NotificationProvider>
         </ThemeProvider>
