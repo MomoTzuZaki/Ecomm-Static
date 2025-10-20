@@ -212,63 +212,20 @@ export const createAdminUser = () => {
   return adminUser;
 };
 
-// Helper function to create test seller accounts
-export const createTestAccounts = () => {
-  const verifiedSeller = {
-    id: 'seller-verified-001',
-    username: 'verifiedseller',
-    email: 'verified@example.com',
-    firstName: 'Verified',
-    lastName: 'Seller',
-    role: 'seller',
-    isVerified: true,
-    verificationStatus: 'approved',
-    createdAt: new Date().toISOString()
-  };
-
-  const nonVerifiedSeller = {
-    id: 'seller-unverified-001',
-    username: 'unverifiedseller',
-    email: 'unverified@example.com',
-    firstName: 'Unverified',
-    lastName: 'Seller',
+// Helper function to create test user account
+export const createTestUser = () => {
+  const testUser = {
+    id: 'user-001',
+    username: 'testuser',
+    email: 'user@example.com',
+    firstName: 'Test',
+    lastName: 'User',
     role: 'user',
-    isVerified: false,
-    verificationStatus: null,
+    isVerified: true,
     createdAt: new Date().toISOString()
   };
 
-  // Create a test verification for the unverified seller
-  const testVerification = {
-    id: 'VER-TEST-001',
-    userId: nonVerifiedSeller.id,
-    user: {
-      id: nonVerifiedSeller.id,
-      username: nonVerifiedSeller.username,
-      email: nonVerifiedSeller.email,
-      firstName: nonVerifiedSeller.firstName,
-      lastName: nonVerifiedSeller.lastName
-    },
-    name: 'Unverified Seller',
-    address: '123 Test Street, Test City',
-    phoneNumber: '555-123-4567',
-    idType: 'Driver\'s License',
-    idNumber: 'TEST123456',
-    status: 'pending',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  // Store the test verification
-  const existingVerifications = JSON.parse(localStorage.getItem('sellerVerifications') || '[]');
-  const existingTestVerification = existingVerifications.find(v => v.id === testVerification.id);
-  
-  if (!existingTestVerification) {
-    existingVerifications.push(testVerification);
-    safeSetItem('sellerVerifications', existingVerifications, true);
-  }
-
-  return { verifiedSeller, nonVerifiedSeller };
+  return testUser;
 };
 
 // Utility function to clear all localStorage data

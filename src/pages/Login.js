@@ -14,7 +14,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import { createAdminUser, createTestAccounts } from '../services/api';
+import { createAdminUser, createTestUser, initializeSampleData } from '../services/api_b2c';
 
 const schema = yup.object({
   email: yup.string().email('Invalid email').required('Email is required'),
@@ -147,40 +147,38 @@ const Login = () => {
             </Button>
           </Box>
 
-          {/* Test Seller Accounts */}
+          {/* Test User Account */}
           <Box sx={{ mt: 2, textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Test Seller Accounts:
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Button
-                variant="outlined"
-                color="success"
-                onClick={() => {
-                  const { verifiedSeller } = createTestAccounts();
-                  setUser(verifiedSeller);
-                  navigate('/dashboard');
-                }}
-                size="small"
-              >
-                Verified Seller
-              </Button>
-              <Button
-                variant="outlined"
-                color="warning"
-                onClick={() => {
-                  const { nonVerifiedSeller } = createTestAccounts();
-                  setUser(nonVerifiedSeller);
-                  navigate('/dashboard');
-                }}
-                size="small"
-              >
-                Unverified Seller
-              </Button>
-            </Box>
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={() => {
+                const testUser = createTestUser();
+                setUser(testUser);
+                navigate('/');
+              }}
+              sx={{ mt: 1 }}
+            >
+              Quick User Access
+            </Button>
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              Verified: verifiedseller / password | Unverified: unverifiedseller / password
+              User: user@example.com / user123
             </Typography>
+          </Box>
+
+          {/* Initialize Sample Data */}
+          <Box sx={{ mt: 2, textAlign: 'center' }}>
+            <Button
+              variant="outlined"
+              color="info"
+              onClick={() => {
+                initializeSampleData();
+                alert('Sample data initialized! Products and users created.');
+              }}
+              sx={{ mt: 1 }}
+            >
+              Initialize Sample Data
+            </Button>
           </Box>
         </Paper>
       </Box>

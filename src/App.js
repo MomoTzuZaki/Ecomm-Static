@@ -3,29 +3,22 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './context/AuthContext';
-import { CartProvider } from './context/CartContext';
-import { ProductProvider } from './context/ProductContext';
 import { NotificationProvider } from './context/NotificationContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
-import Products from './pages/Products';
+import ProductsB2C from './pages/ProductsB2C';
 import ProductDetail from './pages/ProductDetail';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import UserDashboard from './pages/UserDashboard';
 import AdminDashboard from './pages/AdminDashboard';
-import SellProduct from './pages/SellProduct';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import OrderConfirmation from './pages/OrderConfirmation';
 import Orders from './pages/Orders';
-import SellerOrders from './pages/SellerOrders';
 import AdminTransactions from './pages/AdminTransactions';
-import EditProduct from './pages/EditProduct';
-import SellerVerification from './pages/SellerVerification';
-import AdminVerification from './pages/AdminVerification';
-import Messages from './pages/Messages';
+import AdminProductManagement from './pages/AdminProductManagement';
 import './App.css';
 
 // Development helper available at ./utils/clearLocalStorage if needed
@@ -164,25 +157,25 @@ function App() {
             <div className="App">
               <Navbar />
               <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/product/:id" element={<ProductDetail />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/dashboard" element={<UserDashboard />} />
-              <Route path="/admin" element={<ProtectedRoute requireAdmin={true}><AdminDashboard /></ProtectedRoute>} />
-              <Route path="/admin/edit/:id" element={<ProtectedRoute requireAdmin={true}><EditProduct /></ProtectedRoute>} />
-              <Route path="/admin/verification" element={<ProtectedRoute requireAdmin={true}><AdminVerification /></ProtectedRoute>} />
-              <Route path="/admin/transactions" element={<ProtectedRoute requireAdmin={true}><AdminTransactions /></ProtectedRoute>} />
-              <Route path="/sell" element={<ProtectedRoute requireSeller={true}><SellProduct /></ProtectedRoute>} />
-              <Route path="/cart" element={<Cart />} />
-              <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-              <Route path="/order-confirmation" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
-              <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
-              <Route path="/seller-orders" element={<ProtectedRoute><SellerOrders /></ProtectedRoute>} />
-              <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
-              <Route path="/verify-seller" element={<ProtectedRoute><SellerVerification /></ProtectedRoute>} />
-            </Routes>
+                {/* Public Routes */}
+                <Route path="/" element={<Home />} />
+                <Route path="/products" element={<ProductsB2C />} />
+                <Route path="/product/:id" element={<ProductDetail />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                
+                {/* Protected User Routes */}
+                <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
+                <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
+                <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+                <Route path="/order-confirmation" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
+                <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+                
+                {/* Admin Routes */}
+                <Route path="/admin" element={<ProtectedRoute requireAdmin={true}><AdminDashboard /></ProtectedRoute>} />
+                <Route path="/admin/products" element={<ProtectedRoute requireAdmin={true}><AdminProductManagement /></ProtectedRoute>} />
+                <Route path="/admin/transactions" element={<ProtectedRoute requireAdmin={true}><AdminTransactions /></ProtectedRoute>} />
+              </Routes>
             </div>
             </Router>
                 </CartProvider>
