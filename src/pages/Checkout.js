@@ -342,12 +342,17 @@ const Checkout = () => {
                 </Typography>
               </Box>
 
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography>TechCycle Commission (3%):</Typography>
+                <Typography>₱{Math.round(checkoutData.subtotal * 0.03).toLocaleString()}</Typography>
+              </Box>
+
               <Divider sx={{ my: 2 }} />
 
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
                 <Typography variant="h6">Total:</Typography>
                 <Typography variant="h6" color="primary">
-                  ₱{checkoutData.total.toLocaleString()}
+                  ₱{(checkoutData.total + Math.round(checkoutData.subtotal * 0.03)).toLocaleString()}
                 </Typography>
               </Box>
 

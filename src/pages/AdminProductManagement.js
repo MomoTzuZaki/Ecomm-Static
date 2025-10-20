@@ -35,7 +35,8 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  CloudUpload as UploadIcon
 } from '@mui/icons-material';
 import { productAPI } from '../services/api_b2c';
 
@@ -46,6 +47,7 @@ const AdminProductManagement = () => {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -54,8 +56,7 @@ const AdminProductManagement = () => {
     category: '',
     brand: '',
     condition: '',
-    stock: '',
-    specifications: {},
+    specifications: '',
     images: []
   });
 
@@ -86,8 +87,7 @@ const AdminProductManagement = () => {
         category: product.category || '',
         brand: product.brand || '',
         condition: product.condition || '',
-        stock: product.stock || '',
-        specifications: product.specifications || {},
+        specifications: typeof product.specifications === 'string' ? product.specifications : JSON.stringify(product.specifications || {}, null, 2),
         images: product.images || []
       });
     } else {
@@ -100,8 +100,7 @@ const AdminProductManagement = () => {
         category: '',
         brand: '',
         condition: '',
-        stock: '',
-        specifications: {},
+        specifications: '',
         images: []
       });
     }
@@ -111,6 +110,7 @@ const AdminProductManagement = () => {
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setEditingProduct(null);
+    setImagePreview(null);
     setFormData({
       name: '',
       description: '',
@@ -119,10 +119,25 @@ const AdminProductManagement = () => {
       category: '',
       brand: '',
       condition: '',
-      stock: '',
-      specifications: {},
+      specifications: '',
       images: []
     });
+  };
+
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const imageUrl = e.target.result;
+        setFormData({
+          ...formData,
+          images: [imageUrl]
+        });
+        setImagePreview(imageUrl);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = async () => {
@@ -131,10 +146,7 @@ const AdminProductManagement = () => {
         ...formData,
         price: parseFloat(formData.price),
         originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : null,
-        stock: parseInt(formData.stock),
-        specifications: typeof formData.specifications === 'string' 
-          ? JSON.parse(formData.specifications) 
-          : formData.specifications
+        specifications: formData.specifications
       };
 
       if (editingProduct) {
@@ -236,7 +248,6 @@ const AdminProductManagement = () => {
                   <TableCell>Category</TableCell>
                   <TableCell>Brand</TableCell>
                   <TableCell>Price</TableCell>
-                  <TableCell>Stock</TableCell>
                   <TableCell>Condition</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Actions</TableCell>
@@ -280,13 +291,6 @@ const AdminProductManagement = () => {
                           ₱{product.originalPrice.toLocaleString()}
                         </Typography>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={product.stock} 
-                        color={product.stock > 0 ? 'success' : 'error'}
-                        size="small"
-                      />
                     </TableCell>
                     <TableCell>
                       <Chip 
@@ -385,16 +389,6 @@ const AdminProductManagement = () => {
                 />
               </Grid>
               <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="Stock Quantity"
-                  type="number"
-                  value={formData.stock}
-                  onChange={(e) => setFormData({...formData, stock: e.target.value})}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
                 <FormControl fullWidth required>
                   <InputLabel>Category</InputLabel>
                   <Select
@@ -426,29 +420,65 @@ const AdminProductManagement = () => {
                 </FormControl>
               </Grid>
               <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="Image URL"
-                  value={formData.images[0] || ''}
-                  onChange={(e) => setFormData({
-                    ...formData, 
-                    images: [e.target.value]
-                  })}
-                  placeholder="https://example.com/image.jpg"
-                />
+                <Box>
+                  <input
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    id="image-upload"
+                    type="file"
+                    onChange={handleImageUpload}
+                  />
+                  <label htmlFor="image-upload">
+                    <Button
+                      variant="outlined"
+                      component="span"
+                      startIcon={<UploadIcon />}
+                      fullWidth
+                      sx={{ mb: 2 }}
+                    >
+                      Upload Image
+                    </Button>
+                  </label>
+                  {imagePreview && (
+                    <Box
+                      component="img"
+                      src={imagePreview}
+                      alt="Preview"
+                      sx={{
+                        width: '100%',
+                        height: 200,
+                        objectFit: 'cover',
+                        borderRadius: 1,
+                        border: '1px solid #ddd'
+                      }}
+                    />
+                  )}
+                  {formData.images[0] && !imagePreview && (
+                    <Box
+                      component="img"
+                      src={formData.images[0]}
+                      alt="Current"
+                      sx={{
+                        width: '100%',
+                        height: 200,
+                        objectFit: 'cover',
+                        borderRadius: 1,
+                        border: '1px solid #ddd'
+                      }}
+                    />
+                  )}
+                </Box>
               </Grid>
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="Specifications (JSON format)"
+                  label="Specifications"
                   multiline
                   rows={4}
-                  value={typeof formData.specifications === 'string' 
-                    ? formData.specifications 
-                    : JSON.stringify(formData.specifications, null, 2)}
+                  value={formData.specifications}
                   onChange={(e) => setFormData({...formData, specifications: e.target.value})}
-                  placeholder='{"Storage": "256GB", "Color": "Black", "Battery": "95%"}'
-                  helperText="Enter specifications in JSON format"
+                  placeholder="Storage: 256GB, Color: Black, Battery: 95%, RAM: 8GB"
+                  helperText="Enter specifications in plain text format"
                 />
               </Grid>
             </Grid>

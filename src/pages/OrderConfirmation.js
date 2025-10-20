@@ -27,9 +27,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 const OrderConfirmation = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { orderId, total, items } = location.state || {};
+  const { order, paymentReference } = location.state || {};
 
-  if (!orderId) {
+  if (!order) {
     return (
       <Container maxWidth="md" sx={{ py: 4 }}>
         <Alert severity="error">
@@ -49,12 +49,24 @@ const OrderConfirmation = () => {
         </Typography>
         
         <Typography variant="h6" gutterBottom>
-          Order ID: {orderId}
+          Order ID: {order.id}
         </Typography>
         
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
           Thank you for your purchase! Your order has been placed and payment is being processed.
         </Typography>
+
+        {paymentReference && (
+          <Alert severity="success" sx={{ mb: 3, textAlign: 'left' }}>
+            <Typography variant="body2">
+              <strong>Payment Reference:</strong> {paymentReference}
+              <br />
+              <strong>Payment Method:</strong> {order.paymentMethod?.toUpperCase()}
+              <br />
+              <strong>Total Amount:</strong> ₱{order.total?.toLocaleString()}
+            </Typography>
+          </Alert>
+        )}
 
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={4}>
@@ -65,7 +77,7 @@ const OrderConfirmation = () => {
                   Payment
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  ${total?.toFixed(2)} held in escrow
+                  ₱{order.total?.toLocaleString()} paid
                 </Typography>
               </CardContent>
             </Card>
@@ -93,7 +105,7 @@ const OrderConfirmation = () => {
                   Timeline
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {items} item(s) ordered
+                  {order.items?.length} item(s) ordered
                 </Typography>
               </CardContent>
             </Card>
@@ -103,10 +115,11 @@ const OrderConfirmation = () => {
         <Alert severity="info" sx={{ mb: 3, textAlign: 'left' }}>
           <Typography variant="body2">
             <strong>What happens next:</strong>
-            <br />• Seller will contact you to arrange delivery
-            <br />• Use your preferred courier service (Lalamove, J&T Express, etc.)
-            <br />• Confirm delivery when you receive the items
-            <br />• Payment will be released to the seller
+            <br />• Your order will be processed within 1-2 business days
+            <br />• We'll prepare your items and arrange shipping
+            <br />• You'll receive tracking information via email
+            <br />• Estimated delivery: {new Date(order.estimatedDelivery).toLocaleDateString()}
+            <br />• Contact us if you have any questions
           </Typography>
         </Alert>
 

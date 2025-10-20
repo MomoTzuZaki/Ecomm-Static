@@ -19,6 +19,7 @@ import OrderConfirmation from './pages/OrderConfirmation';
 import Orders from './pages/Orders';
 import AdminTransactions from './pages/AdminTransactions';
 import AdminProductManagement from './pages/AdminProductManagement';
+import ContactTechCycle from './pages/ContactTechCycle';
 import './App.css';
 
 // Development helper available at ./utils/clearLocalStorage if needed
@@ -161,6 +162,7 @@ function App() {
                     <Route path="/product/:id" element={<ProductDetail />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
+                    <Route path="/contact" element={<ContactTechCycle />} />
                     
                     {/* Protected User Routes */}
                     <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />

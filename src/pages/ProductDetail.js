@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Grid,
@@ -30,6 +30,7 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import { productAPI, cartAPI } from '../services/api_b2c';
 import { useAuth } from '../context/AuthContext';
+import Toast from '../components/Toast';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -40,12 +41,13 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
 
   useEffect(() => {
     loadProduct();
-  }, [id]);
+  }, [id, loadProduct]);
 
-  const loadProduct = async () => {
+  const loadProduct = useCallback(async () => {
     try {
       setLoading(true);
       const response = await productAPI.getProductById(id);
@@ -58,7 +60,7 @@ const ProductDetail = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   const handleAddToCart = async () => {
     try {
@@ -68,10 +70,14 @@ const ProductDetail = () => {
       }
 
       await cartAPI.addToCart(product.id, quantity);
-      alert('Product added to cart!');
+      
+      // Trigger storage event to update cart count in navbar
+      window.dispatchEvent(new Event('storage'));
+      
+      setToast({ open: true, message: `Added ${quantity} ${quantity === 1 ? 'item' : 'items'} to cart successfully!`, severity: 'success' });
     } catch (error) {
       console.error('Error adding to cart:', error);
-      alert('Error adding product to cart');
+      setToast({ open: true, message: 'Error adding product to cart. Please try again.', severity: 'error' });
     }
   };
 
@@ -83,10 +89,14 @@ const ProductDetail = () => {
       }
 
       await cartAPI.addToCart(product.id, quantity);
+      
+      // Trigger storage event to update cart count in navbar
+      window.dispatchEvent(new Event('storage'));
+      
       navigate('/cart');
     } catch (error) {
       console.error('Error adding to cart:', error);
-      alert('Error adding product to cart');
+      setToast({ open: true, message: 'Error adding product to cart. Please try again.', severity: 'error' });
     }
   };
 
@@ -311,21 +321,50 @@ const ProductDetail = () => {
       {product.specifications && (
         <Box sx={{ mt: 6 }}>
           <Typography variant="h5" gutterBottom>
-            Specifications
+            Key Specifications
           </Typography>
           <Divider sx={{ mb: 3 }} />
           
           <TableContainer component={Paper} sx={{ maxWidth: 600 }}>
             <Table>
               <TableBody>
-                {Object.entries(product.specifications).map(([key, value]) => (
-                  <TableRow key={key}>
-                    <TableCell component="th" scope="row" sx={{ fontWeight: 'bold' }}>
-                      {key}
-                    </TableCell>
-                    <TableCell>{value}</TableCell>
-                  </TableRow>
-                ))}
+                {(() => {
+                  // Handle both string and object formats
+                  let specs = {};
+                  if (typeof product.specifications === 'string') {
+                    // Parse string format (legacy)
+                    const specPairs = product.specifications.split(', ');
+                    specPairs.forEach(pair => {
+                      const [key, value] = pair.split(': ');
+                      if (key && value) {
+                        specs[key.trim()] = value.trim();
+                      }
+                    });
+                  } else if (typeof product.specifications === 'object') {
+                    specs = product.specifications;
+                  }
+                  
+                  // Filter to show only essential specifications
+                  const essentialSpecs = {};
+                  Object.entries(specs).forEach(([key, value]) => {
+                    if (key && value && !key.toLowerCase().includes('weight') && 
+                        !key.toLowerCase().includes('dimensions') && 
+                        !key.toLowerCase().includes('ports') &&
+                        !key.toLowerCase().includes('connectivity') &&
+                        !key.toLowerCase().includes('sensors')) {
+                      essentialSpecs[key] = value;
+                    }
+                  });
+                  
+                  return Object.entries(essentialSpecs).map(([key, value]) => (
+                    <TableRow key={key}>
+                      <TableCell component="th" scope="row" sx={{ fontWeight: 'bold', width: '40%' }}>
+                        {key}
+                      </TableCell>
+                      <TableCell sx={{ width: '60%' }}>{value}</TableCell>
+                    </TableRow>
+                  ));
+                })()}
               </TableBody>
             </Table>
           </TableContainer>
@@ -372,6 +411,13 @@ const ProductDetail = () => {
           </Grid>
         </Grid>
       </Box>
+      
+      <Toast
+        open={toast.open}
+        message={toast.message}
+        severity={toast.severity}
+        onClose={() => setToast({ ...toast, open: false })}
+      />
     </Container>
   );
 };

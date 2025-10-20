@@ -105,11 +105,13 @@ const Cart = () => {
     }
 
     // Store shipping info and proceed to checkout
+    const subtotal = calculateSubtotal(cart);
+    const commission = Math.round(subtotal * 0.03);
     const checkoutData = {
       items: cart,
-      subtotal: calculateSubtotal(cart),
+      subtotal,
       shippingFee,
-      total: calculateTotal(),
+      total: calculateTotal() + commission,
       shippingAddress
     };
 
@@ -215,7 +217,7 @@ const Cart = () => {
                                 {item.product.name}
                               </Typography>
                               <Typography variant="body2" color="text.secondary">
-                                Stock: {item.product.stock} available
+                                Second-hand device
                               </Typography>
                             </Box>
                           </Box>
@@ -235,7 +237,6 @@ const Cart = () => {
                             <IconButton
                               size="small"
                               onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                              disabled={item.quantity >= item.product.stock}
                             >
                               <AddIcon />
                             </IconButton>
@@ -301,6 +302,11 @@ const Cart = () => {
                 </Typography>
               </Box>
 
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography>TechCycle Commission (3%):</Typography>
+                <Typography>₱{Math.round(calculateSubtotal(cart) * 0.03).toLocaleString()}</Typography>
+              </Box>
+
               {calculateSubtotal(cart) < 5000 && (
                 <Alert severity="info" sx={{ mb: 2 }}>
                   Add ₱{(5000 - calculateSubtotal(cart)).toLocaleString()} more for free shipping!
@@ -312,7 +318,7 @@ const Cart = () => {
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
                 <Typography variant="h6">Total:</Typography>
                 <Typography variant="h6" color="primary">
-                  ₱{calculateTotal().toLocaleString()}
+                  ₱{(calculateTotal() + Math.round(calculateSubtotal(cart) * 0.03)).toLocaleString()}
                 </Typography>
               </Box>
 

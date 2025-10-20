@@ -166,20 +166,7 @@ const Login = () => {
             </Typography>
           </Box>
 
-          {/* Initialize Sample Data */}
-          <Box sx={{ mt: 2, textAlign: 'center' }}>
-            <Button
-              variant="outlined"
-              color="info"
-              onClick={() => {
-                initializeSampleData();
-                alert('Sample data initialized! Products and users created.');
-              }}
-              sx={{ mt: 1 }}
-            >
-              Initialize Sample Data
-            </Button>
-          </Box>
+          {/* Initialize Sample Data button removed */}
         </Paper>
       </Box>
     </Container>

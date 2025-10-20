@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   AppBar,
   Toolbar,
-  Typography,
   Button,
   IconButton,
   Menu,
@@ -14,11 +13,12 @@ import {
 import {
   Search as SearchIcon,
   AccountCircle,
-  Message as MessageIcon,
+  ShoppingCart as ShoppingCartIcon,
 } from '@mui/icons-material';
-import { styled, alpha } from '@mui/material/styles';
+import { styled } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { cartAPI } from '../services/api_b2c';
 import TechCycleLogo from '../assets/images/TechCycle.png';
 
 const Search = styled('div')(({ theme }) => ({
@@ -75,9 +75,10 @@ const StyledInputBase = styled(InputBase)(({ theme }) => ({
 
 const Navbar = () => {
   const navigate = useNavigate();
-  const { user, logout, isAdmin, isSeller } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const [anchorEl, setAnchorEl] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [cartCount, setCartCount] = useState(0);
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -99,6 +100,35 @@ const Navbar = () => {
       navigate(`/products?search=${encodeURIComponent(searchQuery)}`);
     }
   };
+
+  const loadCartCount = useCallback(async () => {
+    if (user) {
+      try {
+        const response = await cartAPI.getCart();
+        const totalItems = response.cart.reduce((total, item) => total + item.quantity, 0);
+        setCartCount(totalItems);
+      } catch (error) {
+        console.error('Error loading cart count:', error);
+        setCartCount(0);
+      }
+    } else {
+      setCartCount(0);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadCartCount();
+  }, [user, loadCartCount]);
+
+  // Listen for storage changes to update cart count when items are added/removed
+  useEffect(() => {
+    const handleStorageChange = () => {
+      loadCartCount();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [user, loadCartCount]);
 
   return (
     <AppBar 
@@ -144,22 +174,24 @@ const Navbar = () => {
           </form>
         </Search>
 
-        <IconButton
-          color="inherit"
-          onClick={() => navigate('/messages')}
-          sx={{ 
-            ml: 2,
+        <Button 
+          color="inherit" 
+          onClick={() => navigate('/contact')}
+          sx={{
             color: 'white',
+            fontWeight: 500,
+            textTransform: 'none',
+            fontSize: '1rem',
+            px: 2,
             '&:hover': {
               backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              transform: 'scale(1.05)'
+              transform: 'translateY(-1px)'
             },
             transition: 'all 0.2s ease'
           }}
-          title="Messages"
         >
-          <MessageIcon />
-        </IconButton>
+          Contact
+        </Button>
 
         <Button 
           color="inherit" 
@@ -182,26 +214,28 @@ const Navbar = () => {
 
         {user ? (
           <>
-            {isSeller() && (
-              <Button 
-                color="inherit" 
-                onClick={() => navigate('/sell')}
-                sx={{
-                  color: 'white',
-                  fontWeight: 500,
-                  textTransform: 'none',
-                  fontSize: '1rem',
-                  px: 2,
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    transform: 'translateY(-1px)'
-                  },
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                Sell
-              </Button>
-            )}
+            {/* Cart Icon */}
+            <IconButton
+              size="large"
+              aria-label="shopping cart"
+              onClick={() => navigate('/cart')}
+              color="inherit"
+              sx={{
+                color: 'white',
+                ml: 1,
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  transform: 'scale(1.05)'
+                },
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Badge badgeContent={cartCount} color="error">
+                <ShoppingCartIcon />
+              </Badge>
+            </IconButton>
+
+            {/* Account Icon */}
             <IconButton
               size="large"
               aria-label="account of current user"
@@ -242,19 +276,10 @@ const Navbar = () => {
               <MenuItem onClick={() => { navigate('/orders'); handleClose(); }}>
                 My Orders
               </MenuItem>
-              <MenuItem onClick={() => { navigate('/messages'); handleClose(); }}>
-                Messages
+              <MenuItem onClick={() => { navigate('/contact'); handleClose(); }}>
+                Contact TechCycle
               </MenuItem>
-              {user.role === 'seller' && (
-                <MenuItem onClick={() => { navigate('/seller-orders'); handleClose(); }}>
-                  Seller Orders
-                </MenuItem>
-              )}
-              {user.role === 'user' && (
-                <MenuItem onClick={() => { navigate('/verify-seller'); handleClose(); }}>
-                  Become a Seller
-                </MenuItem>
-              )}
+              {/* Removed seller-related menu items for B2C model */}
               {isAdmin() && (
                 <MenuItem onClick={() => { navigate('/admin'); handleClose(); }}>
                   Admin Panel

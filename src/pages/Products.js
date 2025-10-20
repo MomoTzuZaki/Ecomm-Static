@@ -123,30 +123,52 @@ const Products = () => {
 
       {/* Search and Filters */}
       <Box sx={{ mb: 4, p: 3, bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
-        <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-          Filter Products
+        <Typography variant="h6" gutterBottom sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <FilterList />
+          Search & Filter Products
         </Typography>
+        
+        {/* Search Bar - Full Width */}
+        <Box sx={{ mb: 3 }}>
+          <TextField
+            fullWidth
+            placeholder="Search products, descriptions, or categories..."
+            value={searchQuery}
+            onChange={handleSearch}
+            InputProps={{
+              startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />,
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+              }
+            }}
+          />
+        </Box>
+        
+        {/* Filter Controls */}
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              fullWidth
-              placeholder="Search products..."
-              value={searchQuery}
-              onChange={handleSearch}
-              InputProps={{
-                startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />,
-              }}
-            />
-          </Grid>
-          <Grid item xs={6} sm={3} md={2.5}>
             <FormControl fullWidth>
-              <InputLabel>Category</InputLabel>
+              <InputLabel shrink={false} sx={{ 
+                color: 'text.secondary',
+                '&.Mui-focused': { color: 'primary.main' }
+              }}>
+                Category
+              </InputLabel>
               <Select
                 value={categoryFilter}
-                label="Category"
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                sx={{ minWidth: 120 }}
+                displayEmpty
+                renderValue={(value) => value ? value : 'All Categories'}
+                sx={{ 
+                  borderRadius: 2,
+                  '& .MuiSelect-select': {
+                    color: categoryFilter ? 'text.primary' : 'text.secondary'
+                  }
+                }}
               >
+                <MenuItem value="">All Categories</MenuItem>
                 {categories.map((category) => (
                   <MenuItem key={category} value={category}>
                     {category}
@@ -155,15 +177,27 @@ const Products = () => {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={6} sm={3} md={2.5}>
+          <Grid item xs={12} sm={6} md={3}>
             <FormControl fullWidth>
-              <InputLabel>Condition</InputLabel>
+              <InputLabel shrink={false} sx={{ 
+                color: 'text.secondary',
+                '&.Mui-focused': { color: 'primary.main' }
+              }}>
+                Condition
+              </InputLabel>
               <Select
                 value={conditionFilter}
-                label="Condition"
                 onChange={(e) => setConditionFilter(e.target.value)}
-                sx={{ minWidth: 120 }}
+                displayEmpty
+                renderValue={(value) => value ? value : 'All Conditions'}
+                sx={{ 
+                  borderRadius: 2,
+                  '& .MuiSelect-select': {
+                    color: conditionFilter ? 'text.primary' : 'text.secondary'
+                  }
+                }}
               >
+                <MenuItem value="">All Conditions</MenuItem>
                 {conditions.map((condition) => (
                   <MenuItem key={condition} value={condition}>
                     {condition}
@@ -172,34 +206,53 @@ const Products = () => {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={6} sm={3} md={2}>
+          <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
-              label="Min Price"
+              label="Min Price ($)"
               type="number"
               value={priceRange.min}
               onChange={(e) => setPriceRange({ ...priceRange, min: e.target.value })}
+              placeholder="0"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                }
+              }}
             />
           </Grid>
-          <Grid item xs={6} sm={3} md={2}>
+          <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
-              label="Max Price"
+              label="Max Price ($)"
               type="number"
               value={priceRange.max}
               onChange={(e) => setPriceRange({ ...priceRange, max: e.target.value })}
+              placeholder="1000"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                }
+              }}
             />
           </Grid>
         </Grid>
         
         {/* Clear Filters Button */}
-        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
           <Button
             variant="outlined"
             startIcon={<FilterList />}
             onClick={clearFilters}
+            sx={{
+              borderRadius: 2,
+              px: 3,
+              py: 1,
+              textTransform: 'none',
+              fontWeight: 500
+            }}
           >
-            Clear Filters
+            Clear All Filters
           </Button>
         </Box>
 
@@ -247,14 +300,13 @@ const Products = () => {
         </Box>
       ) : (
         <>
-          <Grid container spacing={2} sx={{ justifyContent: 'center' }}>
+          <Grid container spacing={2} sx={{ alignItems: 'stretch' }}>
             {getPaginatedProducts().map((product, index) => (
-              <Grid item xs={12} sm={6} md={4} lg={3} key={product.id} sx={{ display: 'flex', justifyContent: 'center' }}>
+              <Grid item xs={12} sm={6} md={4} lg={3} key={product.id} sx={{ display: 'flex' }}>
                 <Card
                   sx={{
                     width: '100%',
-                    maxWidth: '300px',
-                    height: '450px',
+                    height: '100%',
                     display: 'flex',
                     flexDirection: 'column',
                     cursor: 'pointer',
@@ -266,87 +318,106 @@ const Products = () => {
                   }}
                   onClick={() => navigate(`/product/${product.id}`)}
                 >
-                  <CardMedia
-                    component="img"
-                    height="200"
-                    image={product.images && product.images.length > 0 ? product.images[0] : 'https://picsum.photos/300/200'}
-                    alt={product.title}
-                    sx={{ 
-                      objectFit: 'cover',
-                      width: '100%',
-                      aspectRatio: '4/3',
-                      minHeight: '200px'
-                    }}
-                    onError={(e) => {
-                      e.target.src = 'https://picsum.photos/300/200';
-                    }}
-                  />
-                  <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 1.5, overflow: 'visible' }}>
-                    <Typography variant="h6" component="h3" gutterBottom>
-                      {product.title}
-                    </Typography>
-                    <Typography 
-                      variant="body2" 
-                      color="text.secondary" 
+                  <Box sx={{ height: '200px', overflow: 'hidden' }}>
+                    <CardMedia
+                      component="img"
+                      height="200"
+                      image={product.images && product.images.length > 0 ? product.images[0] : 'https://picsum.photos/300/200'}
+                      alt={product.title}
                       sx={{ 
-                        mb: 2,
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        height: '40px'
+                        objectFit: 'cover',
+                        width: '100%',
+                        height: '100%'
                       }}
-                    >
-                      {product.description}
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <Typography variant="h6" color="primary">
-                        ${product.price}
+                      onError={(e) => {
+                        e.target.src = 'https://picsum.photos/300/200';
+                      }}
+                    />
+                  </Box>
+                  <CardContent sx={{ 
+                    flexGrow: 1, 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    p: 1.5, 
+                    overflow: 'visible',
+                    justifyContent: 'space-between'
+                  }}>
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Typography variant="h6" component="h3" gutterBottom sx={{ 
+                        minHeight: '48px', 
+                        display: '-webkit-box', 
+                        WebkitLineClamp: 2, 
+                        WebkitBoxOrient: 'vertical', 
+                        overflow: 'hidden',
+                        lineHeight: '1.2'
+                      }}>
+                        {product.title}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ textDecoration: 'line-through' }}>
-                        ${product.originalPrice}
+                      <Typography 
+                        variant="body2" 
+                        color="text.secondary" 
+                        sx={{ 
+                          mb: 2,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          minHeight: '40px'
+                        }}
+                      >
+                        {product.description}
                       </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-                      <Chip
-                        label={product.condition}
-                        size="small"
-                        color={product.condition === 'Excellent' ? 'success' : 'default'}
-                      />
-                      {product.status === 'sold' && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, minHeight: '32px' }}>
+                        <Typography variant="h6" color="primary">
+                          ${product.price}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ textDecoration: 'line-through' }}>
+                          ${product.originalPrice}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap', minHeight: '32px' }}>
                         <Chip
-                          label="SOLD"
+                          label={product.condition}
                           size="small"
-                          color="error"
-                          sx={{ fontWeight: 'bold' }}
+                          color={product.condition === 'Excellent' ? 'success' : 'default'}
                         />
-                      )}
-                      {product.status === 'pending_sale' && (
-                        <Chip
-                          label="BEING ORDERED"
-                          size="small"
-                          color="warning"
-                          sx={{ fontWeight: 'bold' }}
-                        />
-                      )}
+                        {product.status === 'sold' && (
+                          <Chip
+                            label="SOLD"
+                            size="small"
+                            color="error"
+                            sx={{ fontWeight: 'bold' }}
+                          />
+                        )}
+                        {product.status === 'pending_sale' && (
+                          <Chip
+                            label="BEING ORDERED"
+                            size="small"
+                            color="warning"
+                            sx={{ fontWeight: 'bold' }}
+                          />
+                        )}
+                      </Box>
                     </Box>
-                    <Typography variant="caption" display="block" color="text.secondary" sx={{ mb: 1 }}>
-                      {product.location} • {product.datePosted}
-                    </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            Seller: {typeof product.seller === 'object' ? product.seller.name : product.seller}
-                          </Typography>
-                          {typeof product.seller === 'object' && product.seller.isVerified && (
-                            <Chip
-                              label="Verified"
-                              size="small"
-                              color="success"
-                              sx={{ height: 16, fontSize: '0.7rem' }}
-                            />
-                          )}
-                        </Box>
+                    <Box sx={{ mt: 'auto' }}>
+                      <Typography variant="caption" display="block" color="text.secondary" sx={{ mb: 1, minHeight: '20px' }}>
+                        {product.location} • {product.datePosted}
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, minHeight: '20px' }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Seller: {typeof product.seller === 'object' ? product.seller.name : product.seller}
+                        </Typography>
+                        {typeof product.seller === 'object' && product.seller.isVerified && (
+                          <Chip
+                            label="Verified"
+                            size="small"
+                            color="success"
+                            sx={{ height: 16, fontSize: '0.7rem' }}
+                          />
+                        )}
+                      </Box>
+                    </Box>
                   </CardContent>
                 </Card>
               </Grid>
