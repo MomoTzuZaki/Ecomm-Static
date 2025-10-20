@@ -34,8 +34,8 @@ import {
   Payment as PaymentIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useProducts } from '../context/ProductContext';
-import { verificationAPI, adminNotificationAPI } from '../services/api';
+import { productAPI } from '../services/api_b2c';
+import { adminNotificationAPI } from '../services/api';
 
 // Mock data - replace with actual API calls
 const mockPendingProducts = [
@@ -66,7 +66,7 @@ const mockPendingProducts = [
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const { getAllProducts } = useProducts();
+  // Using new B2C API structure
   const [tabValue, setTabValue] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -77,16 +77,28 @@ const AdminDashboard = () => {
     rejected: 0
   });
   const [notifications, setNotifications] = useState([]);
+  const [products, setProducts] = useState([]);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
 
-  // Load verification data and notifications
+  // Load notifications and products
   useEffect(() => {
-    loadVerifications();
     loadNotifications();
+    loadProducts();
   }, []);
+
+  // Load products
+  const loadProducts = async () => {
+    try {
+      const response = await productAPI.getAllProducts();
+      setProducts(response.products || []);
+    } catch (error) {
+      console.error('Error loading products:', error);
+      setProducts([]);
+    }
+  };
 
   // Load admin notifications
   const loadNotifications = async () => {
@@ -203,7 +215,7 @@ const AdminDashboard = () => {
                 Total Products
               </Typography>
               <Typography variant="h4">
-                {getAllProducts().length}
+                {products.length}
               </Typography>
             </CardContent>
           </Card>
@@ -332,20 +344,20 @@ const AdminDashboard = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {getAllProducts().map((product) => (
+                {products.map((product) => (
                   <TableRow key={product.id}>
-                    <TableCell>{product.title}</TableCell>
-                    <TableCell>{typeof product.seller === 'object' ? product.seller.name : product.seller}</TableCell>
-                    <TableCell>${product.price}</TableCell>
+                    <TableCell>{product.name}</TableCell>
+                    <TableCell>TechCycle Store</TableCell>
+                    <TableCell>₱{product.price?.toLocaleString()}</TableCell>
                     <TableCell>{product.category}</TableCell>
                     <TableCell>
                       <Chip
-                        label={product.status}
-                        color={getStatusColor(product.status)}
+                        label={product.isActive ? 'Active' : 'Inactive'}
+                        color={product.isActive ? 'success' : 'default'}
                         size="small"
                       />
                     </TableCell>
-                    <TableCell>{product.dateSubmitted}</TableCell>
+                    <TableCell>{new Date(product.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <IconButton 
                         size="small"
