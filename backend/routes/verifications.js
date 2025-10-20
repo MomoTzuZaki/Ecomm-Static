@@ -8,7 +8,6 @@ const router = express.Router();
 router.post('/', auth, async (req, res) => {
   try {
     const {
-      fullName,
       address,
       phoneNumber,
       idType,
@@ -39,6 +38,7 @@ router.post('/', auth, async (req, res) => {
     const verification = await SellerVerification.create({
       userId: req.userId,
       validIdType: idType,
+      idNumber: idNumber,
       idImage,
       selfieImage,
       address,
@@ -55,6 +55,7 @@ router.post('/', auth, async (req, res) => {
 
     res.status(201).json({
       message: 'Verification request submitted successfully',
+      verificationId: verification.id,
       verification: verification,
     });
   } catch (error) {

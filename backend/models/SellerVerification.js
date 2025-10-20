@@ -21,6 +21,11 @@ const SellerVerification = sequelize.define('SellerVerification', {
     allowNull: false,
     field: 'valid_id_type'
   },
+  idNumber: {
+    type: DataTypes.STRING(100),
+    allowNull: false,
+    field: 'id_number'
+  },
   idImage: {
     type: DataTypes.STRING(255),
     allowNull: false,
